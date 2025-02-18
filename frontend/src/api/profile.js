@@ -85,23 +85,22 @@ export const profileAPI = {
     }
   },
 
+  uploadProfilePhoto: async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('profilePhoto', file);
 
-uploadProfilePhoto: async (file) => {
-  try {
-    const formData = new FormData();
-    formData.append('profilePhoto', file);
-
-    const response = await api.patch('/photo', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
-      withCredentials: true // Add this if using cookies for auth
-    });
-    return response;
-  } catch (error) {
-    throw error;
-  }
-},
+      const response = await api.patch('/photo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        withCredentials: true // Add this if using cookies for auth
+      });
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  },
 
   updateSocialConnections: async (platform, connected) => {
     try {
@@ -115,9 +114,9 @@ uploadProfilePhoto: async (file) => {
     }
   },
 
-  deleteProfile: async () => {
+  deleteAccount: async () => {
     try {
-      const response = await api.delete('/delete');
+      const response = await api.delete('/delete-account');
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

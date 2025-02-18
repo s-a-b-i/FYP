@@ -1,11 +1,19 @@
-// Profile.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Upload } from "lucide-react";
+import { toast } from "react-hot-toast";
 import Button from "@/components/shared/Button";
 import Input from "@/components/shared/Input";
-import Select from "@/components/shared/Select"
+import Select from "@/components/shared/Select";
 import { H1, H2, H3 } from "@/components/shared/Heading";
+import { profileAPI } from "@/api/profile";
+import LoadingSpinner from "@/components/shared/LoadingSpinner";
+import { useAuthStore } from "@/store/authStore"; // Import authStore
+
 const Profile = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasExistingProfile, setHasExistingProfile] = useState(false);
+
   const [formData, setFormData] = useState({
     profilePhoto: null,
     name: "",
@@ -21,11 +29,52 @@ const Profile = () => {
     socialConnections: {
       facebook: false,
       google: false,
-    }
+    },
+    preferences: {}
   });
 
   const [errors, setErrors] = useState({});
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
+
+  // Get logout function from authStore
+  const { logout } = useAuthStore();
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await profileAPI.getProfile();
+      if (response && response.data) {
+        const profile = response.data.data;
+        setHasExistingProfile(true);
+        
+        // Parse date of birth
+        const dob = new Date(profile.dateOfBirth);
+        
+        setFormData({
+          ...profile,
+          dateOfBirth: {
+            day: dob.getDate().toString(),
+            month: (dob.getMonth() + 1).toString(),
+            year: dob.getFullYear().toString(),
+          }
+        });
+
+        if (profile.profilePhoto) {
+          setProfilePhotoPreview(profile.profilePhoto);
+        }
+      }
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        toast.error("Failed to load profile");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
@@ -36,7 +85,12 @@ const Profile = () => {
     if (!formData.gender) newErrors.gender = "Gender is required";
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    if (formData.about.length > 200) newErrors.about = "About me should be max 200 characters";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Invalid email format";
+    }
+    if (formData.about && formData.about.length > 200) {
+      newErrors.about = "About me should be max 200 characters";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -47,13 +101,25 @@ const Profile = () => {
     
     if (name === "profilePhoto") {
       const file = files[0];
-      setFormData(prev => ({ ...prev, profilePhoto: file }));
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+          toast.error("File size should be less than 5MB");
+          return;
+        }
+        
+        if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+          toast.error("Only JPG, JPEG and PNG files are allowed");
+          return;
+        }
+
+        setFormData(prev => ({ ...prev, profilePhoto: file }));
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setProfilePhotoPreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
       return;
     }
 
@@ -72,116 +138,190 @@ const Profile = () => {
         [name]: value,
       }));
     }
-  };
 
-  const handleSocialConnect = (platform) => {
-    setFormData(prev => ({
-      ...prev,
-      socialConnections: {
-        ...prev.socialConnections,
-        [platform]: !prev.socialConnections[platform]
-      }
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (validateForm()) {
-      console.log("Form submitted:", formData);
-      // Add actual submission logic
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
-  const handleDeleteAccount = () => {
-    // Add account deletion logic
-    console.log("Account deletion requested");
+  const handleSocialConnect = async (platform) => {
+    try {
+      const newStatus = !formData.socialConnections[platform];
+      await profileAPI.updateSocialConnections(platform, newStatus);
+      
+      setFormData(prev => ({
+        ...prev,
+        socialConnections: {
+          ...prev.socialConnections,
+          [platform]: newStatus
+        }
+      }));
+      
+      toast.success(`Successfully ${newStatus ? 'connected to' : 'disconnected from'} ${platform}`);
+    } catch (error) {
+      toast.error(`Failed to update ${platform} connection`);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    try {
+      // Format date of birth
+      const dateOfBirth = new Date(
+        parseInt(formData.dateOfBirth.year),
+        parseInt(formData.dateOfBirth.month) - 1,
+        parseInt(formData.dateOfBirth.day)
+      ).toISOString();
+
+      // Prepare the data
+      const submitData = {
+        ...formData,
+        dateOfBirth,
+      };
+
+      if (hasExistingProfile) {
+        await profileAPI.updateProfile(submitData);
+        toast.success("Profile updated successfully");
+      } else {
+        await profileAPI.createProfile(submitData);
+        setHasExistingProfile(true);
+        toast.success("Profile created successfully");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to save profile");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete your account? This action cannot be undone."
+    );
+    
+    if (confirmed) {
+      try {
+        await profileAPI.deleteAccount(); // Use deleteAccount instead of deleteProfile
+        toast.success("Account deleted successfully");
+        logout(); // Use logout from authStore
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to delete account");
+      }
+    }
+  };
+
+  const resetForm = () => {
+    if (hasExistingProfile) {
+      fetchProfile();
+    } else {
+      setFormData({
+        profilePhoto: null,
+        name: "",
+        dateOfBirth: { day: "", month: "", year: "" },
+        gender: "",
+        about: "",
+        phone: "",
+        email: "",
+        socialConnections: { facebook: false, google: false },
+        preferences: {}
+      });
+      setProfilePhotoPreview(null);
+    }
+    setErrors({});
   };
 
   const generateOptions = (type) => {
     switch(type) {
       case 'day':
-        return Array.from({length: 31}, (_, i) => i + 1);
+        return Array.from({length: 31}, (_, i) => ({
+          value: (i + 1).toString(),
+          label: (i + 1).toString()
+        }));
       case 'month':
         return [
           'January', 'February', 'March', 'April', 
           'May', 'June', 'July', 'August', 
           'September', 'October', 'November', 'December'
-        ];
+        ].map((month, index) => ({
+          value: (index + 1).toString(),
+          label: month
+        }));
       case 'year':
-        return Array.from({length: 100}, (_, i) => new Date().getFullYear() - i);
+        const currentYear = new Date().getFullYear();
+        return Array.from({length: 100}, (_, i) => ({
+          value: (currentYear - i).toString(),
+          label: (currentYear - i).toString()
+        }));
       default:
         return [];
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      profilePhoto: null,
-      name: "",
-      dateOfBirth: { day: "", month: "", year: "" },
-      gender: "",
-      about: "",
-      phone: "",
-      email: "",
-      socialConnections: { facebook: false, google: false }
-    });
-    setProfilePhotoPreview(null);
-  };
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="layout bg-background">
       <form onSubmit={handleSubmit} className="container py-section">
-        <div className="max-w-profile mx-auto bg-card rounded-lg  p-8 border border-gray-200">
-        <H1 withBorder className="mb-8">Edit Profile</H1>
+        <div className="max-w-profile mx-auto bg-card rounded-lg p-8 border border-gray-200">
+          <H1 withBorder className="mb-8">
+            {hasExistingProfile ? "Edit Profile" : "Create Profile"}
+          </H1>
 
           {/* Profile Photo Section */}
-{/* Profile Photo Section */}
-<section className="section-sm border-b border-gray-200 pb-6">
-  <div className="space-y-4">
-    <p className="text-sm font-medium text-gray-500">Profile Photo</p>
-    <div className="flex items-center gap-6">
-      <div className="w-24 h-24 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
-        {profilePhotoPreview ? (
-          <img 
-            src={profilePhotoPreview} 
-            alt="Profile Preview" 
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Upload className="w-8 h-8 text-gray-400" />
-          </div>
-        )}
-      </div>
-      <div className="space-y-2">
-        <input
-          type="file"
-          id="profilePhotoInput"
-          name="profilePhoto"
-          accept="image/jpeg,image/png"
-          onChange={handleInputChange}
-          className="hidden"
-        />
-        <Button 
-          variant="primary" 
-          type="button"
-          onClick={() => document.getElementById('profilePhotoInput').click()}
-        >
-          Upload Photo
-        </Button>
-        <p className="text-xs text-gray-500">
-          JPG, JPEG, PNG (min: 400px, max: 1024px)
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
+          <section className="section-sm border-b border-gray-200 pb-6">
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-gray-500">Profile Photo</p>
+              <div className="flex items-center gap-6">
+                <div className="w-24 h-24 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                  {profilePhotoPreview ? (
+                    <img 
+                      src={profilePhotoPreview} 
+                      alt="Profile Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    id="profilePhotoInput"
+                    name="profilePhoto"
+                    accept="image/jpeg,image/png"
+                    onChange={handleInputChange}
+                    className="hidden"
+                  />
+                  <Button 
+                    variant="primary" 
+                    type="button"
+                    onClick={() => document.getElementById('profilePhotoInput').click()}
+                  >
+                    Upload Photo
+                  </Button>
+                  <p className="text-xs text-gray-500">
+                    JPG, JPEG, PNG (max: 5MB)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* Personal Information */}
           <section className="section-sm border-b border-gray-200 pb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Personal Information
-            </h2>
+            <H2 className="mb-6">Personal Information</H2>
 
             <Input
               label="Full Name"
@@ -237,7 +377,7 @@ const Profile = () => {
 
           {/* Contact Information */}
           <section className="section-sm border-b border-gray-200 pb-6">
-          <H2 className="mb-6">Contact Information</H2>
+            <H2 className="mb-6">Contact Information</H2>
             <Input
               label="Phone Number"
               name="phone"
@@ -261,12 +401,12 @@ const Profile = () => {
 
           {/* Social Connections */}
           <section className="section-sm border-b border-gray-200 pb-6">
-          <H2 className="mb-6">Social Connections</H2>
+            <H2 className="mb-6">Social Connections</H2>
 
             {["Facebook", "Google"].map((platform) => (
-              <div key={platform} className="flex justify-between items-center py-4 border-b border-gray-200">
+              <div key={platform} className="flex justify-between items-center py-4 border-gray-200">
                 <div className="space-y-1">
-                <H3>{platform}</H3>
+                  <H3>{platform}</H3>
                   <p className="text-sm text-gray-500">
                     {platform === "Facebook"
                       ? "Connect with Facebook to find trusted connections"
@@ -276,6 +416,7 @@ const Profile = () => {
                 <Button
                   variant={formData.socialConnections[platform.toLowerCase()] ? "primary" : "outline"}
                   onClick={() => handleSocialConnect(platform.toLowerCase())}
+                  type="button"
                 >
                   {formData.socialConnections[platform.toLowerCase()] ? 'Connected' : 'Connect'}
                 </Button>
@@ -285,44 +426,51 @@ const Profile = () => {
 
           {/* Action Buttons */}
           <div className="flex justify-between items-center pt-8">
-            <Button variant="outline" onClick={resetForm}>
+            <Button 
+              variant="outline" 
+              type="button"
+              onClick={resetForm}
+              disabled={isSubmitting}
+            >
               Discard Changes
             </Button>
-            <Button type="submit" variant="primary">
-              Save Changes
+            <Button 
+              type="submit" 
+              variant="primary"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : (hasExistingProfile ? 'Save Changes' : 'Create Profile')}
             </Button>
           </div>
         </div>
       </form>
 
       {/* Delete Account Container */}
-      <div className="container py-section">
-        <div className="max-w-profile mx-auto bg-card rounded-lg  p-8 border border-border">
-        <H1 withBorder className="mb-4">Delete this account</H1>
-
-          <div className="space-y-4">
-            <div className="pb-4 border-b border-border">
-              <p className="text-base text-gray-700">
-                Are you sure you want to delete your account?
-              </p>
-            </div>
+      {hasExistingProfile && (
+        <div className="container py-section">
+          <div className="max-w-profile mx-auto bg-card rounded-lg p-8 border border-border">
+            <H1 withBorder className="mb-4">Delete this account</H1>
 
             <div className="space-y-4">
-              <Button 
-                variant="destructive"
-                onClick={handleDeleteAccount}
-                className="w-full md:w-auto"
-              >
-                Yes, delete my account
-              </Button>
+              <div className="pb-4 border-b border-border">
+                <p className="text-base text-gray-700">
+                  Are you sure you want to delete your account? This action cannot be undone.
+                </p>
+              </div>
 
-              <Button variant="link">
-                See more info
-              </Button>
+              <div className="space-y-4">
+                <Button 
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  className="w-full md:w-auto"
+                >
+                  Yes, delete my account
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

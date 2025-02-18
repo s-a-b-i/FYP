@@ -7,7 +7,7 @@ import {
   updateProfile,
   uploadProfilePhoto,
   updateSocialConnections,
-  deleteProfile,
+  deleteAccount,
   createProfile
 } from '../controllers/profile.controller.js';
 
@@ -23,6 +23,6 @@ router.get('/me', getProfile);
 router.patch('/update', upload.single('profilePhoto'), updateProfile);
 router.patch('/photo', upload.single('profilePhoto'), uploadProfilePhoto);
 router.patch('/social-connections', updateSocialConnections);
-router.delete('/delete', deleteProfile);
+router.delete('/delete-account', verifyToken , deleteAccount);
 
 export default router;
