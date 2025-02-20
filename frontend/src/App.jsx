@@ -139,7 +139,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
-import LoadingSpinner from '@/components/auth/LoadingSpinner';
+import LoadingSpinner from '@/components/shared/LoadingSpinner';
 
 import LoginPage from '@/pages/auth/LoginPage';
 import SignUpPage from '@/pages/auth/SignUpPage';
@@ -242,7 +242,7 @@ function App() {
   }, [checkAuth]);
 
   if (isCheckingAuth) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

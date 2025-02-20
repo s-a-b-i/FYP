@@ -1,7 +1,21 @@
-// components/Header.jsx
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MapPinIcon, SearchIcon, MessageCircle, Bell, Menu, X, ArrowLeft } from "lucide-react";
+import {
+  MapPinIcon,
+  SearchIcon,
+  MessageCircle,
+  Bell,
+  Menu,
+  X,
+  ArrowLeft,
+  FileText, // For "My ads"
+  Heart, // For "Favourites & Saved searches"
+  Tag, // For "Buy Discounted Packages"
+  CreditCard, // For "Bought Packages & Billing"
+  HelpCircle, // For "Help"
+  Settings, // For "Settings"
+  LogOut, // For "Logout"
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/authStore";
 import logo from "../../assets/logo.svg";
@@ -9,13 +23,13 @@ import logo from "../../assets/logo.svg";
 const Header = ({ searchQuery, setSearchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, profile, logout } = useAuthStore(); // Add profile
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Define routes where we show minimal header
-  const minimalHeaderRoutes = ['/post', '/post/attributes'];
-  const shouldShowMinimalHeader = minimalHeaderRoutes.some(route => 
+  const minimalHeaderRoutes = ["/post", "/post/attributes"];
+  const shouldShowMinimalHeader = minimalHeaderRoutes.some((route) =>
     location.pathname.startsWith(route)
   );
 
@@ -29,23 +43,29 @@ const Header = ({ searchQuery, setSearchQuery }) => {
   };
 
   const profileMenuItems = [
-    { label: "My ads", icon: "📄", onClick: () => navigate("/my-items") },
-    { label: "Favourites & Saved searches", icon: "❤️", onClick: () => navigate("/favourites") },
-    { label: "Buy Discounted Packages", icon: "🏷️", onClick: () => navigate("/packages") },
-    { label: "Bought Packages & Billing", icon: "💳", onClick: () => navigate("/billing") },
-    { label: "Help", icon: "❓", onClick: () => navigate("/help") },
-    { label: "Settings", icon: "⚙️", onClick: () => navigate("/profile/settings") },
-    { label: "Logout", icon: "🚪", onClick: handleLogout },
+    { label: "My ads", icon: <FileText className="h-5 w-5" />, onClick: () => navigate("/my-items") },
+    { label: "Favourites & Saved searches", icon: <Heart className="h-5 w-5" />, onClick: () => navigate("/favourites") },
+    { label: "Buy Discounted Packages", icon: <Tag className="h-5 w-5" />, onClick: () => navigate("/packages") },
+    { label: "Bought Packages & Billing", icon: <CreditCard className="h-5 w-5" />, onClick: () => navigate("/billing") },
+    { label: "Help", icon: <HelpCircle className="h-5 w-5" />, onClick: () => navigate("/help") },
+    { label: "Settings", icon: <Settings className="h-5 w-5" />, onClick: () => navigate("/profile/settings") },
+    { label: "Logout", icon: <LogOut className="h-5 w-5" />, onClick: handleLogout },
   ];
 
   const ProfileContent = () => (
     <div className="bg-card">
       <div className="flex items-center gap-4 p-4 border-b border-border">
         <div className="w-12 h-12 rounded-full overflow-hidden border border-border">
-          <img src="/profile-icon.png" alt="Profile" className="w-full h-full object-cover" />
+          <img
+            src={profile?.profilePhoto || "/profile-icon.png"} // Use profile photo
+            alt="Profile"
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="flex-1">
-          <p className="text-lg font-semibold text-foreground">Hello, {user?.name}</p>
+          <p className="text-lg font-semibold text-foreground">
+            Hello, {profile?.name || user?.name}
+          </p>
           <button
             onClick={() => {
               navigate("/profile/edit");
@@ -157,7 +177,11 @@ const Header = ({ searchQuery, setSearchQuery }) => {
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="w-10 h-10 rounded-full overflow-hidden border border-border focus:ring-2 focus:ring-ring"
                 >
-                  <img src="/profile-icon.png" alt="Profile" className="w-full h-full object-cover" />
+                  <img
+                    src={profile?.profilePhoto || "/profile-icon.png"} // Use profile photo
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
                 </button>
                 {isProfileOpen && (
                   <div className="absolute right-0 mt-2 w-72 rounded-lg shadow-lg border border-border overflow-hidden">
@@ -181,7 +205,11 @@ const Header = ({ searchQuery, setSearchQuery }) => {
           className="md:hidden text-foreground"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
-          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {isMobileMenuOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
         </button>
       </nav>
 

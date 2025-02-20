@@ -2,16 +2,49 @@ import { create } from "zustand";
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api/auth";
+const PROFILE_URL = "http://localhost:5000/api/v1/profile";
 
 axios.defaults.withCredentials = true;
 
 export const useAuthStore = create((set) => ({
   user: null,
+  profile: null, // Add profile state
   isAuthenticated: false,
   error: null,
   isLoading: false,
   isCheckingAuth: true,
   message: null,
+
+    // Fetch profile data
+    fetchProfile: async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const response = await axios.get(`${PROFILE_URL}/me`);
+        set({ profile: response.data.data, isLoading: false });
+        return response.data;
+      } catch (error) {
+        if (error.response?.status === 404) {
+          set({ profile: null, isLoading: false }); // No profile exists for the user
+        } else {
+          set({ error: "Failed to fetch profile", isLoading: false });
+        }
+        throw error;
+      }
+    },
+
+
+      // Update profile data
+  updateProfile: async (profileData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await axios.patch(`${PROFILE_URL}/update`, profileData);
+      set({ profile: response.data.data, isLoading: false });
+      return response.data;
+    } catch (error) {
+      set({ error: "Failed to update profile", isLoading: false });
+      throw error;
+    }
+  },
 
   signUp: async (name, email, password) => {
     set({ isLoading: true, error: null });
@@ -36,23 +69,22 @@ export const useAuthStore = create((set) => ({
     }
   },
 
+  // Login and fetch profile
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.post(`${API_URL}/login`, {
-        email,
-        password,
-      });
+      const response = await axios.post(`${API_URL}/login`, { email, password });
       set({
         user: response.data.user,
         isAuthenticated: true,
-        error: null,
         isLoading: false,
       });
+      // Fetch profile after login
+      await useAuthStore.getState().fetchProfile();
       return response.data;
     } catch (error) {
       set({
-        error: error.response?.data?.message || "Error signing up",
+        error: error.response?.data?.message || "Error logging in",
         isLoading: false,
       });
       throw error;
@@ -97,6 +129,7 @@ export const useAuthStore = create((set) => ({
     }
   },
 
+  // Check auth and fetch profile
   checkAuth: async () => {
     set({ isCheckingAuth: true, error: null });
     try {
@@ -106,6 +139,8 @@ export const useAuthStore = create((set) => ({
         isAuthenticated: true,
         isCheckingAuth: false,
       });
+      // Fetch profile after checking auth
+      await useAuthStore.getState().fetchProfile();
       return response.data;
     } catch (error) {
       set({
@@ -116,6 +151,7 @@ export const useAuthStore = create((set) => ({
     }
   },
 
+  
   forgotPassword: async (email) => {
     set({ isLoading: true, error: null });
     try {
