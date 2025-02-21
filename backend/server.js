@@ -8,6 +8,8 @@ import cors from 'cors';
 
 //profile routes
 import profileRoutes from './routes/profile.routes.js';
+import categoryRoutes from './routes/category.routes.js'
+import itemRoutes from './routes/item.routes.js'
 
 
 dotenv.config();
@@ -34,6 +36,12 @@ app.get("/" , (req, res) => {
 })
 // profile routes
 app.use('/api/v1/profile', profileRoutes);
+
+// category routes
+app.use('/api/v1/category', categoryRoutes);
+
+// item routes
+app.use('/api/v1/item', itemRoutes);
 
 
 // auth routes

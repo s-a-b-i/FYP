@@ -1,7 +1,7 @@
 // routes/profile.routes.js
 import { Router } from 'express';
 import { upload } from '../middlewares/multer.middleware.js';
-import { verifyToken } from '../middleware/verifyToken.js';
+import { verifyToken } from '../middlewares/verifyToken.js';
 import {
   getProfile,
   updateProfile,

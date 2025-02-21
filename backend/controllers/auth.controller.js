@@ -41,12 +41,10 @@ export const signup = async (req, res) => {
         await newUser.save();
 
         // Generate token and set it in the cookie
-        generateTokenAndSetCookie(newUser._id, res);
-
+        generateTokenAndSetCookie(newUser._id, newUser.isAdmin, res);
 
         // Send verification email
         await sendVerificationEmail(newUser.email, verificationToken);
-
 
         res.status(201).json({ success: true, msg: "User created successfully", user: {
             ...newUser._doc,
@@ -99,7 +97,6 @@ export const login = async (req, res) => {
     const {email , password} = req.body;
 
     try {
-
         // Check if email and password are present
         if (!email || !password) {
             return res.status(400).json({ success: false, msg: "Please enter all fields" });
@@ -118,7 +115,7 @@ export const login = async (req, res) => {
             return res.status(400).json({ success: false, msg: "Invalid email or password" });
         }
 
-        generateTokenAndSetCookie(user._id, res);
+        generateTokenAndSetCookie(user._id, user.isAdmin, res);
 
         user.lastLogin = new Date();
         await user.save();
@@ -128,12 +125,8 @@ export const login = async (req, res) => {
             password: undefined
         } });
 
-
-        
     } catch (error) {
-
-        res.status(500).json({ success: false, msg: "error.message" });
-        
+        res.status(500).json({ success: false, msg: error.message });
     }
 }
 

@@ -1,7 +1,6 @@
 // models/User.js
 import mongoose from 'mongoose';
 
-
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -19,6 +18,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isAdmin: {
+    type: Boolean,
+    default: false
+  },
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   verificationToken: String,
@@ -28,7 +31,5 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   }
 }, { timestamps: true });
-
-
 
 export const User = mongoose.model('User', userSchema);

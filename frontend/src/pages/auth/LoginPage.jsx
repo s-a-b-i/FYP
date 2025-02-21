@@ -128,9 +128,13 @@ const LoginPage = () => {
     e.preventDefault();
 
     try {
-      await login(email, password);
-      navigate('/');
-      toast.success('Login successful');
+       const response = await login(email, password);
+       // Check if user is admin and redirect accordingly
+       if (response.user.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       console.log(error);
     }

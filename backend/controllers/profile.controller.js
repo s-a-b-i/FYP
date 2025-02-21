@@ -110,7 +110,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   const profile = await Profile.findOne({ user: req.user._id });
   
   if (!profile) {
-    throw new ApiError(404, "Profile not found");
+    throw new ApiError(404, "No profile found for this user");
   }
 
   // Handle profile photo update if present

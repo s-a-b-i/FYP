@@ -134,7 +134,7 @@
 
 // export default App;
 
-// App.jsx
+/// App.jsx
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -147,6 +147,7 @@ import EmailVerificationPage from '@/pages/auth/EmailVerificationPage';
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 import Layout from './components/layout/Layout';
+import AdminLayout from './components/layout/AdminLayout';
 import Home from './pages/Home';
 import Search from './pages/Search';
 import ItemDetails from './pages/items/ItemDetail';
@@ -176,21 +177,47 @@ import ProtectedRoute from './components/routes/ProtectedRoute';
 import AdminRoute from './components/routes/AdminRoute';
 import PostCategories from './pages/post/PostCategories';
 import PostAttributes from './pages/post/PostAttributes';
+import { ThemeProvider } from './context/ThemeContext';
 
 function AppContent() {
   const location = useLocation();
   const authPages = ['/login', '/signup', '/verify-email', '/forgot-password', '/reset-password'];
   const isAuthPage = authPages.some(page => location.pathname.startsWith(page));
+  const isAdminPage = location.pathname.startsWith('/admin');
 
-  return isAuthPage ? (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/verify-email" element={<EmailVerificationPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-    </Routes>
-  ) : (
+  if (isAuthPage) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/verify-email" element={<EmailVerificationPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+      </Routes>
+    );
+  }
+
+  if (isAdminPage) {
+    return (
+      <ThemeProvider>
+      <AdminLayout>
+        <Routes>
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/items" element={<ItemModeration />} />
+            <Route path="/admin/transactions" element={<TransactionOverview />} />
+            <Route path="/admin/disputes" element={<DisputeManagement />} />
+            <Route path="/admin/reports" element={<Reports />} />
+            <Route path="/admin/promotions" element={<PromotionManagement />} />
+          </Route>
+        </Routes>
+      </AdminLayout>
+      </ThemeProvider>
+    );
+  }
+
+  return (
     <Layout>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -214,17 +241,6 @@ function AppContent() {
           <Route path="/reviews/edit/:id" element={<EditReview />} />
           <Route path="/post" element={<PostCategories />} />
           <Route path="/post/attributes/:categoryId" element={<PostAttributes />} />
-
-        </Route>
-
-        <Route element={<AdminRoute />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<UserManagement />} />
-          <Route path="/admin/items" element={<ItemModeration />} />
-          <Route path="/admin/transactions" element={<TransactionOverview />} />
-          <Route path="/admin/disputes" element={<DisputeManagement />} />
-          <Route path="/admin/reports" element={<Reports />} />
-          <Route path="/admin/promotions" element={<PromotionManagement />} />
         </Route>
 
         <Route path="/404" element={<NotFound />} />

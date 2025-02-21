@@ -10,6 +10,7 @@ export const useAuthStore = create((set) => ({
   user: null,
   profile: null, // Add profile state
   isAuthenticated: false,
+  isAdmin: false,
   error: null,
   isLoading: false,
   isCheckingAuth: true,
@@ -77,10 +78,20 @@ export const useAuthStore = create((set) => ({
       set({
         user: response.data.user,
         isAuthenticated: true,
+        isAdmin: response.data.user.isAdmin,
         isLoading: false,
       });
-      // Fetch profile after login
-      await useAuthStore.getState().fetchProfile();
+      
+      // Try to fetch profile
+      try {
+        await useAuthStore.getState().fetchProfile();
+      } catch (error) {
+        if (error.response?.status !== 404) {
+          throw error;
+        }
+        set({ profile: null });
+      }
+      
       return response.data;
     } catch (error) {
       set({
@@ -90,6 +101,7 @@ export const useAuthStore = create((set) => ({
       throw error;
     }
   },
+
 
   logout: async () => {
     set({ isLoading: true, error: null });
@@ -129,7 +141,7 @@ export const useAuthStore = create((set) => ({
     }
   },
 
-  // Check auth and fetch profile
+  // Modify checkAuth function
   checkAuth: async () => {
     set({ isCheckingAuth: true, error: null });
     try {
@@ -137,16 +149,29 @@ export const useAuthStore = create((set) => ({
       set({
         user: response.data.user,
         isAuthenticated: true,
+        isAdmin: response.data.user.isAdmin,
         isCheckingAuth: false,
       });
-      // Fetch profile after checking auth
-      await useAuthStore.getState().fetchProfile();
+      
+      // Try to fetch profile, but don't throw error if it doesn't exist
+      try {
+        await useAuthStore.getState().fetchProfile();
+      } catch (error) {
+        if (error.response?.status !== 404) {
+          throw error;
+        }
+        // Profile doesn't exist yet - this is expected for new users
+        set({ profile: null });
+      }
+      
       return response.data;
     } catch (error) {
       set({
         error: null,
         isCheckingAuth: false,
         isAuthenticated: false,
+        isAdmin: false,
+        profile: null,
       });
     }
   },
