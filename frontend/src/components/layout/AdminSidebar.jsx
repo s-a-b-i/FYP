@@ -16,6 +16,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
     { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/admin/users', label: 'Users', icon: Users },
     { path: '/admin/items', label: 'Items', icon: Package },
+    { path: '/admin/categories', label: 'Categories', icon: Package },
     { path: '/admin/transactions', label: 'Transactions', icon: CreditCard },
     { path: '/admin/disputes', label: 'Disputes', icon: AlertTriangle },
     { path: '/admin/reports', label: 'Reports', icon: FileText },

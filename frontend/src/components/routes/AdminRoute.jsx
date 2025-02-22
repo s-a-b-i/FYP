@@ -1,6 +1,6 @@
 // components/routes/AdminRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 
 const AdminRoute = ({ children }) => {
@@ -17,7 +17,7 @@ const AdminRoute = ({ children }) => {
   }
 
   // If the user is authenticated and an admin, render the children (admin content)
-  return children;
+  return <Outlet />;
 };
 
 export default AdminRoute;

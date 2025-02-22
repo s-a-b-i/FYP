@@ -178,6 +178,7 @@ import AdminRoute from './components/routes/AdminRoute';
 import PostCategories from './pages/post/PostCategories';
 import PostAttributes from './pages/post/PostAttributes';
 import { ThemeProvider } from './context/ThemeContext';
+import CategoriesMamagment from './pages/admin/CategoriesMamagment';
 
 function AppContent() {
   const location = useLocation();
@@ -206,6 +207,7 @@ function AppContent() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/items" element={<ItemModeration />} />
+            <Route path="/admin/categories" element={<CategoriesMamagment />} />
             <Route path="/admin/transactions" element={<TransactionOverview />} />
             <Route path="/admin/disputes" element={<DisputeManagement />} />
             <Route path="/admin/reports" element={<Reports />} />

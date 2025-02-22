@@ -7,12 +7,14 @@ import {
   deleteCategory,
   getCategories,
   getCategoryById,
+  uploadCategoryIcon,
   toggleCategoryStatus
 } from '../controllers/category.controller.js';
+import { upload } from '../middlewares/multer.middleware.js';
 
 const router = express.Router();
-
-router.get('/', getCategories);
+router.post('/upload', isAuth, isAdmin, upload.single('icon'), uploadCategoryIcon);
+router.get('/', isAuth , getCategories);
 router.get('/:id', getCategoryById);
 router.post('/', isAuth, isAdmin, createCategory);
 router.put('/:id', isAuth, isAdmin, updateCategory);

@@ -2,11 +2,48 @@ import { Category } from '../models/category.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js'; // Import asyncHandler
 import { ApiError } from '../utils/ApiError.js'; // Import ApiError
 import { Item } from '../models/item.model.js'; // Import Item model for deleteCategory
+import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 
-// Create Category
+
+
+export const uploadCategoryIcon = asyncHandler(async (req, res) => {
+  const iconLocalPath = req.file?.path;
+  
+  if (!iconLocalPath) {
+    throw new ApiError(400, "Icon file is required");
+  }
+
+  try {
+    const cloudinaryResponse = await uploadToCloudinary(iconLocalPath);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        url: cloudinaryResponse.url,
+        public_id: cloudinaryResponse.public_id
+      }
+    });
+  } catch (error) {
+    throw new ApiError(500, "Error uploading icon: " + error.message);
+  }
+});
+
+
+// Create Category with icon
 export const createCategory = asyncHandler(async (req, res) => {
+  const { name, parent, isActive, metadata, icon } = req.body;
+
+  if (icon && (!icon.url || !icon.public_id)) {
+    throw new ApiError(400, "Icon must include both url and public_id");
+  }
+
+
   const category = await Category.create({
-    ...req.body,
+    name,
+    parent,
+    isActive,
+    metadata,
+    icon,
     createdBy: req.user._id
   });
 
@@ -18,14 +55,20 @@ export const createCategory = asyncHandler(async (req, res) => {
 
 // Get Categories
 export const getCategories = asyncHandler(async (req, res) => {
+
+  // console.log('User:', req.user); // Log the user object
+
   const filter = {};
   if (!req.user?.isAdmin) {
     filter.isActive = true;
   }
 
+  // console.log('Filter:', filter); // Log the filter
+
   const categories = await Category.find(filter)
+  .select('name parent isActive metadata icon')
     .sort('order')
-    .populate('parent');
+    .populate('parent' , 'name');
 
   res.json({
     status: 'success',
@@ -49,44 +92,101 @@ export const getCategoryById = asyncHandler(async (req, res) => {
 });
 
 // Update Category
+// Update Category
 export const updateCategory = asyncHandler(async (req, res) => {
-  const category = await Category.findByIdAndUpdate(
-    req.params.id,
-    req.body,
+  const { id } = req.params;
+  const { name, parent, isActive, metadata, icon } = req.body;
+
+  const category = await Category.findById(id);
+  
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  // If there's a new icon and an old icon exists, delete the old one
+  if (icon && icon.public_id && category.icon?.public_id && icon.public_id !== category.icon.public_id) {
+    await deleteFromCloudinary(category.icon.public_id);
+  }
+
+  const updatedCategory = await Category.findByIdAndUpdate(
+    id,
+    {
+      name,
+      parent,
+      isActive,
+      metadata,
+      icon
+    },
     { new: true, runValidators: true }
   );
 
-  if (!category) {
-    throw new ApiError(404, 'Category not found');
-  }
-
   res.json({
     status: 'success',
-    data: category
+    data: updatedCategory
   });
 });
+
+
+
 
 // Delete Category
 export const deleteCategory = asyncHandler(async (req, res) => {
-  const category = await Category.findById(req.params.id);
+  const { id } = req.params;
+  const { forceDelete } = req.body;
 
-  if (!category) {
-    throw new ApiError(404, 'Category not found');
+  try {
+    const category = await Category.findById(id);
+    if (!category) {
+      throw new ApiError(404, "Category not found");
+    }
+
+    // Check for subcategories and items
+    const subcategories = await Category.find({ parent: id });
+    const itemCount = await Item.countDocuments({ category: id });
+
+    if (!forceDelete && (subcategories.length > 0 || itemCount > 0)) {
+      return res.status(400).json({
+        status: 'error',
+        message: "Cannot delete category with subcategories or items",
+        details: {
+          hasSubcategories: subcategories.length > 0,
+          subcategoriesCount: subcategories.length,
+          hasItems: itemCount > 0,
+          itemsCount: itemCount
+        }
+      });
+    }
+
+    // Delete process
+    if (forceDelete) {
+      // Delete subcategories recursively
+      for (const sub of subcategories) {
+        if (sub.icon?.public_id) {
+          await deleteFromCloudinary(sub.icon.public_id);
+        }
+        await Category.deleteOne({ _id: sub._id });
+        await Item.deleteMany({ category: sub._id });
+      }
+    }
+
+    // Delete category icon if exists
+    if (category.icon?.public_id) {
+      await deleteFromCloudinary(category.icon.public_id);
+    }
+
+    // Delete category and its items
+    await Item.deleteMany({ category: id });
+    await Category.deleteOne({ _id: id });
+
+    res.status(200).json({
+      status: 'success',
+      message: "Category deleted successfully"
+    });
+  } catch (error) {
+    throw new ApiError(500, `Error deleting category: ${error.message}`);
   }
-
-  // Check if category has items
-  const itemCount = await Item.countDocuments({ category: req.params.id });
-  if (itemCount > 0) {
-    throw new ApiError(400, 'Cannot delete category with existing items');
-  }
-
-  await category.remove();
-
-  res.json({
-    status: 'success',
-    data: null
-  });
 });
+
 
 // Toggle Category Status
 export const toggleCategoryStatus = asyncHandler(async (req, res) => {

@@ -13,8 +13,14 @@ const categorySchema = new mongoose.Schema({
     lowercase: true
   },
   icon: {
-    type: String,
-    required: [true, 'Category icon is required']
+    url: {
+      type: String,
+      required: [true, 'Icon URL is required']
+    },
+    public_id: {
+      type: String,
+      required: [true, 'Icon public ID is required']
+    }
   },
   parent: {
     type: mongoose.Schema.Types.ObjectId,

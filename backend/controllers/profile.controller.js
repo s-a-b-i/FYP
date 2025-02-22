@@ -1,7 +1,7 @@
 // controllers/profileController.js
 import { Profile } from '../models/profile.model.js';
 import { User } from '../models/user.model.js';
-import { uploadToCloudinary , deleteFromCloudinary } from '../utils/cloudinary.js';
+import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -17,6 +17,12 @@ const createProfile = asyncHandler(async (req, res) => {
     socialConnections,
     preferences
   } = req.body;
+
+  // Check if the user exists
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
   // Check if profile already exists
   const existingProfile = await Profile.findOne({ user: req.user._id });
@@ -74,7 +80,9 @@ const getProfile = asyncHandler(async (req, res) => {
   const profile = await Profile.findOne({ user: req.user._id });
   
   if (!profile) {
-    throw new ApiError(404, "Profile not found");
+    return res.status(200).json(
+      new ApiResponse(200, {}, "No profile found for this user")
+    );
   }
 
   // Convert dateOfBirth object to ISO string for frontend
