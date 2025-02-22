@@ -1,8 +1,8 @@
-// src/components/ConfirmationModal.jsx
 import React from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import Button from './Button';
+import { FiAlertTriangle, FiX } from 'react-icons/fi';
 
 const ConfirmationModal = ({
   isOpen,
@@ -14,6 +14,7 @@ const ConfirmationModal = ({
   cancelText = 'Cancel',
   variant = 'destructive',
   isLoading = false,
+  confirmDisabled = false,
 }) => {
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -41,37 +42,59 @@ const ConfirmationModal = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-background p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title
-                  as="h3"
-                  className="text-lg font-medium leading-6 text-foreground"
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-background p-6 text-left align-middle shadow-xl transition-all border border-border/20 dark:border-border/40">
+                {/* Close button */}
+                <button
+                  onClick={onClose}
+                  className="absolute right-4 top-4 p-2 rounded-full hover:bg-accent/10 transition-colors"
                 >
-                  {title}
-                </Dialog.Title>
+                  <FiX className="w-5 h-5 text-muted-foreground" />
+                </button>
 
-                <div className="mt-2">
-                  <p className="text-sm text-muted-foreground">
-                    {message}
-                  </p>
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className={`p-2 rounded-full ${variant === 'destructive' ? 'bg-destructive/10 text-destructive' : 'bg-accent/10 text-accent'}`}>
+                    <FiAlertTriangle className="w-5 h-5" />
+                  </div>
+                  <Dialog.Title
+                    as="h3"
+                    className="text-xl font-semibold leading-6 text-foreground flex-1"
+                  >
+                    {title}
+                  </Dialog.Title>
                 </div>
 
-                <div className="mt-6 flex justify-end space-x-3">
+                {/* Content */}
+                <div className="mt-2 border-t border-border/20 dark:border-border/40 pt-4">
+                  <div className="text-base text-muted-foreground">
+                    {typeof message === 'string' ? (
+                      <p>{message}</p>
+                    ) : (
+                      message
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-border/20 dark:border-border/40">
                   <Button
                     variant="outline"
                     onClick={onClose}
                     disabled={isLoading}
+                    className="min-w-[100px] text-base"
                   >
                     {cancelText}
                   </Button>
                   <Button
                     variant={variant}
                     onClick={onConfirm}
-                    disabled={isLoading}
+                    disabled={isLoading || confirmDisabled}
+                    className="min-w-[100px] text-base"
                   >
                     {isLoading ? (
-                      <div className="flex items-center">
+                      <div className="flex items-center justify-center gap-2">
                         <svg 
-                          className="animate-spin -ml-1 mr-2 h-4 w-4" 
+                          className="animate-spin h-4 w-4" 
                           xmlns="http://www.w3.org/2000/svg" 
                           fill="none" 
                           viewBox="0 0 24 24"
