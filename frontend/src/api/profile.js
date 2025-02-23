@@ -62,18 +62,19 @@ export const profileAPI = {
       Object.keys(profileData).forEach(key => {
         if (key !== 'profilePhoto') {
           if (typeof profileData[key] === 'object') {
+            // Ensure objects are properly stringified
             formData.append(key, JSON.stringify(profileData[key]));
           } else {
             formData.append(key, profileData[key]);
           }
         }
       });
-
+  
       // Append profile photo if exists
-      if (profileData.profilePhoto) {
+      if (profileData.profilePhoto instanceof File) {
         formData.append('profilePhoto', profileData.profilePhoto);
       }
-
+  
       const response = await api.patch('/update', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'

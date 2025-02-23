@@ -104,66 +104,79 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const {
-    name,
-    dateOfBirth,
-    gender,
-    about,
-    phone,
-    email,
-    socialConnections,
-    preferences
-  } = req.body;
-
-  const profile = await Profile.findOne({ user: req.user._id });
+  // First check if profile exists
+  let profile = await Profile.findOne({ user: req.user._id });
   
+  // Parse JSON strings back to objects for socialConnections and preferences
+  const updateData = { ...req.body };
+  
+  // Parse socialConnections if it's a string
+  if (typeof updateData.socialConnections === 'string') {
+    try {
+      updateData.socialConnections = JSON.parse(updateData.socialConnections);
+    } catch (err) {
+      throw new ApiError(400, "Invalid socialConnections format");
+    }
+  }
+
+  // Parse preferences if it's a string
+  if (typeof updateData.preferences === 'string') {
+    try {
+      updateData.preferences = JSON.parse(updateData.preferences);
+    } catch (err) {
+      throw new ApiError(400, "Invalid preferences format");
+    }
+  }
+
+  // If no profile exists, create one
   if (!profile) {
-    throw new ApiError(404, "No profile found for this user");
+    const profileData = {
+      user: req.user._id,
+      ...updateData
+    };
+
+    // Handle date of birth formatting
+    if (updateData.dateOfBirth) {
+      const date = new Date(updateData.dateOfBirth);
+      profileData.dateOfBirth = {
+        day: date.getDate(),
+        month: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
+                'August', 'September', 'October', 'November', 'December'][date.getMonth()],
+        year: date.getFullYear()
+      };
+    }
+
+    profile = await Profile.create(profileData);
+  } else {
+    // Update existing profile
+    if (updateData.dateOfBirth) {
+      const date = new Date(updateData.dateOfBirth);
+      updateData.dateOfBirth = {
+        day: date.getDate(),
+        month: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
+                'August', 'September', 'October', 'November', 'December'][date.getMonth()],
+        year: date.getFullYear()
+      };
+    }
+
+    // Update fields
+    Object.keys(updateData).forEach(key => {
+      if (key !== 'user') {
+        profile[key] = updateData[key];
+      }
+    });
+
+    await profile.save();
   }
 
   // Handle profile photo update if present
   if (req.file) {
     const uploadedImage = await uploadToCloudinary(req.file.path);
     profile.profilePhoto = uploadedImage.url;
+    await profile.save();
   }
 
-  // Update basic fields if provided
-  if (name) profile.name = name;
-  if (gender) profile.gender = gender;
-  if (about) profile.about = about;
-  if (phone) profile.phone = phone;
-  if (email) profile.email = email;
-
-  // Handle date of birth update
-  if (dateOfBirth) {
-    const date = new Date(dateOfBirth);
-    profile.dateOfBirth = {
-      day: date.getDate(),
-      month: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
-              'August', 'September', 'October', 'November', 'December'][date.getMonth()],
-      year: date.getFullYear()
-    };
-  }
-
-  // Update social connections if provided
-  if (socialConnections) {
-    profile.socialConnections = {
-      ...profile.socialConnections,
-      ...socialConnections
-    };
-  }
-
-  // Update preferences if provided
-  if (preferences) {
-    profile.preferences = {
-      ...profile.preferences,
-      ...preferences
-    };
-  }
-
-  await profile.save();
-
-  // Prepare response with ISO date string
+  // Format response
   const responseProfile = profile.toObject();
   const monthIndex = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
                      'August', 'September', 'October', 'November', 'December']
@@ -178,7 +191,6 @@ const updateProfile = asyncHandler(async (req, res) => {
     new ApiResponse(200, responseProfile, "Profile updated successfully")
   );
 });
-
 const uploadProfilePhoto = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw new ApiError(400, "No file uploaded");
@@ -223,7 +235,13 @@ const deleteAccount = asyncHandler(async (req, res) => {
     
     // Delete profile photo from cloudinary if it exists
     if (profile && profile.profilePhoto) {
-      const publicId = profile.profilePhoto.split('/').pop().split('.')[0];
+      // Extract public_id from the URL
+      const publicId = profile.profilePhoto
+        .split('/')
+        .slice(-2) // Get the last two segments (folder and filename)
+        .join('/') // Join them back together
+        .split('.')[0]; // Remove the file extension
+      
       await deleteFromCloudinary(publicId);
     }
     

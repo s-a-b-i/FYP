@@ -9,12 +9,18 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
+// utils/cloudinary.js
 const uploadToCloudinary = async (localFilePath) => {
     try {
         if (!localFilePath) {
             throw new ApiError(400, "No file path provided");
         }
         
+        // Check if file exists before uploading
+        if (!fs.existsSync(localFilePath)) {
+            throw new ApiError(400, "File not found");
+        }
+
         // Upload the file to cloudinary
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto",
@@ -22,12 +28,13 @@ const uploadToCloudinary = async (localFilePath) => {
             quality: "auto",
             fetch_format: "auto"
         });
-
-        // File has been uploaded successfully
-        // console.log("File uploaded successfully", response.url);
         
         // Remove file from local storage
-        fs.unlinkSync(localFilePath);
+        try {
+            fs.unlinkSync(localFilePath);
+        } catch (err) {
+            console.error("Error deleting temp file:", err);
+        }
         
         return {
             url: response.secure_url,
@@ -35,8 +42,14 @@ const uploadToCloudinary = async (localFilePath) => {
         };
 
     } catch (error) {
-        // Remove the locally saved temporary file as the upload operation failed
-        fs.unlinkSync(localFilePath);
+        // Try to remove the locally saved temporary file if it exists
+        try {
+            if (fs.existsSync(localFilePath)) {
+                fs.unlinkSync(localFilePath);
+            }
+        } catch (err) {
+            console.error("Error deleting temp file:", err);
+        }
         throw new ApiError(500, "Error while uploading file to cloudinary: " + error.message);
     }
 };

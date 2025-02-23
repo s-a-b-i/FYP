@@ -23,6 +23,6 @@ router.get('/me', getProfile);
 router.patch('/update', upload.single('profilePhoto'), updateProfile);
 router.patch('/photo', upload.single('profilePhoto'), uploadProfilePhoto);
 router.patch('/social-connections', updateSocialConnections);
-router.delete('/delete-account', verifyToken , deleteAccount);
+router.delete('/delete-account' , deleteAccount);
 
 export default router;

@@ -50,13 +50,13 @@ const Profile = () => {
   const fetchProfile = async () => {
     try {
       const response = await profileAPI.getProfile();
-      if (response && response.data) {
+      if (response && response.data && response.data.data && Object.keys(response.data.data).length > 0) {
         const profile = response.data.data;
         setHasExistingProfile(true);
-
+        
         // Parse date of birth
         const dob = new Date(profile.dateOfBirth);
-
+        
         setFormData({
           ...profile,
           dateOfBirth: {
@@ -64,16 +64,23 @@ const Profile = () => {
             month: (dob.getMonth() + 1).toString(),
             year: dob.getFullYear().toString(),
           },
+          socialConnections: {
+            facebook: profile.socialConnections?.facebook || false,
+            google: profile.socialConnections?.google || false,
+          },
         });
-
+  
         if (profile.profilePhoto) {
           setProfilePhotoPreview(profile.profilePhoto);
         }
+      } else {
+        setHasExistingProfile(false);
       }
     } catch (error) {
       if (error.response?.status !== 404) {
         toast.error("Failed to load profile");
       }
+      setHasExistingProfile(false);
     } finally {
       setIsLoading(false);
     }
@@ -423,34 +430,34 @@ const Profile = () => {
           <section className="section-sm border-b border-gray-200 pb-6">
             <H2 className="mb-6">Social Connections</H2>
 
-            {["Facebook", "Google"].map((platform) => (
-              <div
-                key={platform}
-                className="flex justify-between items-center py-4 border-gray-200"
-              >
-                <div className="space-y-1">
-                  <H3>{platform}</H3>
-                  <p className="text-sm text-gray-500">
-                    {platform === "Facebook"
-                      ? "Connect with Facebook to find trusted connections"
-                      : "Link your Google account for easier access"}
-                  </p>
-                </div>
-                <Button
-                  variant={
-                    formData.socialConnections[platform.toLowerCase()]
-                      ? "primary"
-                      : "outline"
-                  }
-                  onClick={() => handleSocialConnect(platform.toLowerCase())}
-                  type="button"
-                >
-                  {formData.socialConnections[platform.toLowerCase()]
-                    ? "Connected"
-                    : "Connect"}
-                </Button>
-              </div>
-            ))}
+            {["Facebook", "Google"].map((platform) => {
+  const platformKey = platform.toLowerCase();
+  const isConnected = formData.socialConnections?.[platformKey] || false;
+
+  return (
+    <div
+      key={platform}
+      className="flex justify-between items-center py-4 border-gray-200"
+    >
+      <div className="space-y-1">
+        <H3>{platform}</H3>
+        <p className="text-sm text-gray-500">
+          {platform === "Facebook"
+            ? "Connect with Facebook to find trusted connections"
+            : "Link your Google account for easier access"}
+        </p>
+      </div>
+      <Button
+        variant={isConnected ? "primary" : "outline"}
+        onClick={() => handleSocialConnect(platformKey)}
+        type="button"
+      >
+        {isConnected ? "Connected" : "Connect"}
+      </Button>
+    </div>
+  );
+})}
+
           </section>
 
           {/* Action Buttons */}
