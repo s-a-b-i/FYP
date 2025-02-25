@@ -179,12 +179,16 @@ import PostCategories from './pages/post/PostCategories';
 import PostAttributes from './pages/post/PostAttributes';
 import { ThemeProvider } from './context/ThemeContext';
 import CategoriesMamagment from './pages/admin/CategoriesMamagment';
+// import AddItemButton from './components/shared/AddItemButton';
 
 function AppContent() {
   const location = useLocation();
   const authPages = ['/login', '/signup', '/verify-email', '/forgot-password', '/reset-password'];
   const isAuthPage = authPages.some(page => location.pathname.startsWith(page));
   const isAdminPage = location.pathname.startsWith('/admin');
+  const showAddItemButton = !isAuthPage && !isAdminPage && 
+                            !location.pathname.startsWith('/post') &&
+                            location.pathname !== '/404';
 
   if (isAuthPage) {
     return (
@@ -201,20 +205,20 @@ function AppContent() {
   if (isAdminPage) {
     return (
       <ThemeProvider>
-      <AdminLayout>
-        <Routes>
-          <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<UserManagement />} />
-            <Route path="/admin/items" element={<ItemModeration />} />
-            <Route path="/admin/categories" element={<CategoriesMamagment />} />
-            <Route path="/admin/transactions" element={<TransactionOverview />} />
-            <Route path="/admin/disputes" element={<DisputeManagement />} />
-            <Route path="/admin/reports" element={<Reports />} />
-            <Route path="/admin/promotions" element={<PromotionManagement />} />
-          </Route>
-        </Routes>
-      </AdminLayout>
+        <AdminLayout>
+          <Routes>
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<UserManagement />} />
+              <Route path="/admin/items" element={<ItemModeration />} />
+              <Route path="/admin/categories" element={<CategoriesMamagment />} />
+              <Route path="/admin/transactions" element={<TransactionOverview />} />
+              <Route path="/admin/disputes" element={<DisputeManagement />} />
+              <Route path="/admin/reports" element={<Reports />} />
+              <Route path="/admin/promotions" element={<PromotionManagement />} />
+            </Route>
+          </Routes>
+        </AdminLayout>
       </ThemeProvider>
     );
   }
@@ -241,13 +245,18 @@ function AppContent() {
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/reviews/create/:transactionId" element={<CreateReview />} />
           <Route path="/reviews/edit/:id" element={<EditReview />} />
+          
+          {/* Updated Post routes with proper structure */}
           <Route path="/post" element={<PostCategories />} />
           <Route path="/post/attributes/:categoryId" element={<PostAttributes />} />
+          <Route path="/post/create/:type/:categoryId" element={<CreateItem />} />
         </Route>
 
         <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
+      
+      {/* {showAddItemButton && <AddItemButton />} */}
     </Layout>
   );
 }
