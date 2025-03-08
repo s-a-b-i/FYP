@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: "class", // Enable dark mode using class strategy
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
   theme: {
     container: {
@@ -61,11 +61,11 @@ export default {
           foreground: 'hsl(var(--accent-foreground))'
         },
         destructive: {
-          DEFAULT: '#DC2626', // Red-600
+          DEFAULT: '#DC2626',
           foreground: '#FFFFFF',
-          hover: '#B91C1C', // Red-700
-          light: '#FEE2E2', // Red-100
-          dark: '#7F1D1D'   // Red-900
+          hover: '#B91C1C',
+          light: '#FEE2E2',
+          dark: '#7F1D1D'
         },
         gray: {
           50: '#F9FAFB',
@@ -112,14 +112,28 @@ export default {
         input: '#333333',
         ring: 'hsl(var(--ring))',
         chart: {
-          '1': 'hsl(var(--chart-1))',
-          '2': 'hsl(var(--chart-2))',
-          '3': 'hsl(var(--chart-3))',
-          '4': 'hsl(var(--chart-4))',
-          '5': 'hsl(var(--chart-5))'
+          vibrant: {
+            blue: '#3B82F6',    // Vibrant Blue
+            green: '#22C55E',   // Vibrant Green
+            purple: '#8B5CF6',  // Vibrant Purple
+            orange: '#F97316',  // Vibrant Orange
+            pink: '#EC4899',    // Vibrant Pink
+            teal: '#14B8A6',    // Vibrant Teal
+            yellow: '#FACC15',  // Vibrant Yellow
+            red: '#EF4444'      // Vibrant Red
+          },
+          muted: {
+            blue: 'rgba(59, 130, 246, 0.2)',
+            green: 'rgba(34, 197, 94, 0.2)',
+            purple: 'rgba(139, 92, 246, 0.2)',
+            orange: 'rgba(249, 115, 22, 0.2)',
+            pink: 'rgba(236, 72, 153, 0.2)',
+            teal: 'rgba(20, 184, 166, 0.2)',
+            yellow: 'rgba(250, 204, 21, 0.2)',
+            red: 'rgba(239, 68, 68, 0.2)'
+          }
         },
         admin: {
-          // Light theme colors
           background: '#FFFFFF',
           sidebar: '#F8FAFC',
           header: '#FFFFFF',
@@ -136,7 +150,6 @@ export default {
             hover: '#059669',
             light: '#D1FAE5'
           },
-          // Dark theme colors
           backgroundDark: '#0F1117',
           sidebarDark: '#1A1C23',
           headerDark: '#1A1C23',
@@ -160,7 +173,7 @@ export default {
         'auto-fill': 'repeat(auto-fill, minmax(250px, 1fr))',
       },
       minHeight: {
-        'screen-without-header': 'calc(100vh - 64px)', // Adjust 64px to your header height
+        'screen-without-header': 'calc(100vh - 64px)',
       },
       backgroundColor: {
         'primary-hover': 'hsl(var(--primary)/0.9)',

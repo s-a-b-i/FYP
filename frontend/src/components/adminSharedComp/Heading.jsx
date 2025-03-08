@@ -13,7 +13,7 @@ const Heading = ({
   
   const styles = {
     1: "text-4xl md:text-5xl lg:text-6xl",
-    2: "text-3xl md:text-4xl",
+    2: "text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 dark:from-blue-400 dark:to-indigo-300 bg-clip-text text-transparent",
     3: "text-2xl md:text-3xl",
     4: "text-xl md:text-2xl",
     5: "text-lg md:text-xl",

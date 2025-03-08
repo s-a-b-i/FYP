@@ -179,6 +179,8 @@ import PostCategories from './pages/post/PostCategories';
 import PostAttributes from './pages/post/PostAttributes';
 import { ThemeProvider } from './context/ThemeContext';
 import CategoriesMamagment from './pages/admin/CategoriesMamagment';
+import ModeratedItems from './pages/admin/ModeratedItems';
+import ModerationGraph from './pages/admin/ModerationGraph';
 // import AddItemButton from './components/shared/AddItemButton';
 
 function AppContent() {
@@ -211,6 +213,8 @@ function AppContent() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<UserManagement />} />
               <Route path="/admin/items" element={<ItemModeration />} />
+              <Route path="/admin/moderated-items" element={<ModeratedItems />} />
+              <Route path="/admin/moderation-stats" element={<ModerationGraph />} />
               <Route path="/admin/categories" element={<CategoriesMamagment />} />
               <Route path="/admin/transactions" element={<TransactionOverview />} />
               <Route path="/admin/disputes" element={<DisputeManagement />} />

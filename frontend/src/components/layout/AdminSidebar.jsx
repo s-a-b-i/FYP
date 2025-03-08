@@ -8,7 +8,8 @@ import {
   AlertTriangle,
   FileText,
   Target,
-  X
+  X,
+  BarChart2
 } from 'lucide-react';
 
 const AdminSidebar = ({ isOpen, setIsOpen }) => {
@@ -16,6 +17,8 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
     { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/admin/users', label: 'Users', icon: Users },
     { path: '/admin/items', label: 'Items', icon: Package },
+    { path:'/admin/moderated-items' , label: 'Moderated Items', icon: Package },
+    { path: '/admin/moderation-stats', label: 'Moderation Stats', icon: BarChart2 },
     { path: '/admin/categories', label: 'Categories', icon: Package },
     { path: '/admin/transactions', label: 'Transactions', icon: CreditCard },
     { path: '/admin/disputes', label: 'Disputes', icon: AlertTriangle },

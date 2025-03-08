@@ -10,6 +10,7 @@ import cors from 'cors';
 import profileRoutes from './routes/profile.routes.js';
 import categoryRoutes from './routes/category.routes.js'
 import itemRoutes from './routes/item.routes.js'
+import notificationRoutes from './routes/notification.routes.js';
 
 
 dotenv.config();
@@ -43,6 +44,9 @@ app.use('/api/v1/category', categoryRoutes);
 // item routes
 app.use('/api/v1/item', itemRoutes);
 
+
+// notification routes
+app.use('/api/v1/notifications', notificationRoutes);
 
 // auth routes
 app.use("/api/auth" , authRoutes)
