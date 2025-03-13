@@ -116,22 +116,52 @@ export const updateItem = asyncHandler(async (req, res) => {
 });
 
 // Upload Item Images
+// Upload Item Images
 export const uploadItemImages = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
   if (!item) throw new ApiError('Item not found', 404);
 
+  if (!req.files || req.files.length === 0) {
+    throw new ApiError(400, 'No images provided for upload');
+  }
+
+  // Clean up existing empty image entries
+  item.images = item.images.filter(img => img.url && img.public_id);
+
+  // Determine if this is the first upload for this item
+  const isFirstUpload = item.images.length === 0;
+
   const uploadedImages = await Promise.all(
     req.files.map(async (file, index) => {
-      const result = await uploadToCloudinary(file.buffer);
-      return {
-        url: result.secure_url,
-        isMain: index === 0 && item.images.length === 0,
-        order: item.images.length + index,
-      };
+      try {
+        const result = await uploadToCloudinary(file.path);
+        
+        if (!result.public_id || !result.secure_url) {
+          console.error('Invalid Cloudinary response:', result);
+          throw new ApiError(500, 'Cloudinary upload failed: missing required fields');
+        }
+        
+        return {
+          url: result.secure_url,
+          public_id: result.public_id,
+          isMain: index === 0 && isFirstUpload, // Make first image the main image only for first uploads
+          order: item.images.length + index,
+        };
+      } catch (error) {
+        console.error(`Error uploading file: ${file.path}`, error);
+        throw new ApiError(500, `Failed to upload image: ${error.message}`);
+      }
     })
   );
 
+  // Add the new images
   item.images.push(...uploadedImages);
+  
+  // Ensure at least one image is marked as main
+  if (item.images.length > 0 && !item.images.some(img => img.isMain)) {
+    item.images[0].isMain = true;
+  }
+
   await item.save();
 
   res.json({
@@ -487,8 +517,15 @@ export const deleteItem = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
   if (!item) throw new ApiError('Item not found', 404);
 
-  await Promise.all(item.images.map((image) => deleteFromCloudinary(image.url)));
-  await item.remove();
+  // Delete associated images from Cloudinary, skipping those without public_id
+  await Promise.all(
+    item.images
+      .filter(image => image.public_id) // Only process images with a public_id
+      .map(image => deleteFromCloudinary(image.public_id))
+  );
+
+  // Delete the item from the database
+  await Item.deleteOne({ _id: item._id });
 
   res.json({ status: 'success', data: null });
 });
@@ -632,10 +669,14 @@ export const deleteItemImage = asyncHandler(async (req, res) => {
     if (nextImage) nextImage.isMain = true;
   }
 
-  try {
-    await deleteFromCloudinary(image.url);
-  } catch (error) {
-    console.error('Failed to delete image from Cloudinary:', error);
+  if (image.public_id) { // Only attempt deletion if public_id exists
+    try {
+      await deleteFromCloudinary(image.public_id);
+    } catch (error) {
+      console.error('Failed to delete image from Cloudinary:', error);
+    }
+  } else {
+    console.warn(`Image ${imageId} has no public_id, skipping Cloudinary deletion`);
   }
 
   item.images.pull(imageId);

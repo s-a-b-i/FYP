@@ -189,6 +189,7 @@ const itemSchema = new mongoose.Schema({
   },
   images: [{
     url: String,
+    public_id: String, // Add this to store the Cloudinary public_id
     isMain: Boolean,
     order: Number
   }],
