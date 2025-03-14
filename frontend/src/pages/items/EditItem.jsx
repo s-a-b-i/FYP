@@ -1,6 +1,3 @@
-
-
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
@@ -27,7 +24,7 @@ const EditItem = () => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    price: "",
+    price: "", // Will only be used for "sell"
     sex: "",
     condition: "",
     location: "",
@@ -73,23 +70,24 @@ const EditItem = () => {
           setSelectedCategory(categoryResponse.data || categoryResponse);
         }
 
-        // Set form data
+        // Set form data based on item type
         setFormData({
           title: item.title || "",
           description: item.description || "",
-          price: typeof item.price === "object" ? item.price.amount || "" : item.price || "",
+          price: item.type === "sell" && item.price ? item.price.amount || "" : "", // Only for "sell"
           sex: item.sex || "",
           condition: item.condition || "",
-          location: typeof item.location === "object" ? item.location.address || "" : item.location || "",
+          location: item.location?.address || item.location || "",
           images: [],
-          name: item.name || "",
-          phoneNumber: item.phoneNumber || "",
-          showPhoneNumber: item.showPhoneNumber || false,
-          rentDuration: item.rentDuration || "",
-          securityDeposit: item.securityDeposit || "",
-          availabilityDate: item.availabilityDate || "",
-          exchangeFor: item.exchangeFor || "",
-          exchangePreferences: item.exchangePreferences || "",
+          name: item.contactInfo?.name || "",
+          phoneNumber: item.contactInfo?.phoneNumber || "",
+          showPhoneNumber: item.contactInfo?.showPhoneNumber || false,
+          rentDuration: item.rentDetails?.duration || "",
+          securityDeposit: item.rentDetails?.securityDeposit || "",
+          availabilityDate: item.rentDetails?.availabilityDate ? 
+            new Date(item.rentDetails.availabilityDate).toISOString().split("T")[0] : "",
+          exchangeFor: item.exchangeDetails?.exchangeFor || "",
+          exchangePreferences: item.exchangeDetails?.exchangePreferences || "",
         });
 
         if (item.images && item.images.length > 0) {
@@ -115,9 +113,10 @@ const EditItem = () => {
 
   const handleTypeChange = (newType) => {
     setType(newType);
-    // Optionally reset type-specific fields when type changes
+    // Reset type-specific fields when type changes
     setFormData((prev) => ({
       ...prev,
+      price: newType === "sell" ? prev.price : "", // Only keep price for "sell"
       rentDuration: newType === "rent" ? prev.rentDuration : "",
       securityDeposit: newType === "rent" ? prev.securityDeposit : "",
       availabilityDate: newType === "rent" ? prev.availabilityDate : "",
@@ -178,6 +177,11 @@ const EditItem = () => {
       return false;
     }
 
+    if (type === "sell" && !formData.price) {
+      setError("Price is required for sell items");
+      return false;
+    }
+
     return true;
   };
 
@@ -197,18 +201,31 @@ const EditItem = () => {
       const itemData = {
         title: formData.title,
         description: formData.description,
-        price: { amount: parseFloat(formData.price) },
+        ...(type === "sell" && { price: { amount: parseFloat(formData.price) } }), // Only for "sell"
         sex: formData.sex,
         condition: formData.condition,
         location: { address: formData.location },
         category: categoryId,
-        type, // Include the updated type
+        type,
         removedImages: removedImageIds,
-        rentDuration: type === "rent" ? formData.rentDuration : undefined,
-        securityDeposit: type === "rent" ? formData.securityDeposit : undefined,
-        availabilityDate: type === "rent" ? formData.availabilityDate : undefined,
-        exchangeFor: type === "exchange" ? formData.exchangeFor : undefined,
-        exchangePreferences: type === "exchange" ? formData.exchangePreferences : undefined,
+        ...(type === "rent" && {
+          rentDetails: {
+            duration: formData.rentDuration,
+            securityDeposit: formData.securityDeposit ? Number(formData.securityDeposit) : undefined,
+            availabilityDate: formData.availabilityDate,
+          }
+        }),
+        ...(type === "exchange" && {
+          exchangeDetails: {
+            exchangeFor: formData.exchangeFor,
+            exchangePreferences: formData.exchangePreferences,
+          }
+        }),
+        contactInfo: {
+          name: formData.name,
+          phoneNumber: formData.phoneNumber,
+          showPhoneNumber: formData.showPhoneNumber,
+        },
       };
 
       await itemAPI.updateItem(id, itemData);
@@ -464,19 +481,21 @@ const EditItem = () => {
 
           {/* Price and Location Section */}
           <div className="bg-card rounded-lg p-8 border border-gray-200">
-            <H2 className="mb-6">Price and Location</H2>
+            <H2 className="mb-6">{type === "sell" ? "Price and Location" : "Location"}</H2>
             <div className="space-y-6">
-              <Input
-                label="Price"
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
-                placeholder="Enter Price"
-                required={type !== "exchange"} // Price not required for exchange
-                prefix="Rs"
-                disabled={loading}
-              />
+              {type === "sell" && (
+                <Input
+                  label="Price"
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  placeholder="Enter Price"
+                  required
+                  prefix="Rs"
+                  disabled={loading}
+                />
+              )}
               <Input
                 label="Location"
                 name="location"
@@ -489,21 +508,17 @@ const EditItem = () => {
             </div>
           </div>
 
-          {/* Type-specific fields */}
+          {/* Rental Details Section (for Rent type only) */}
           {type === "rent" && (
             <div className="bg-card rounded-lg p-8 border border-gray-200">
               <H2 className="mb-6">Rental Details</H2>
               <div className="space-y-6">
-                <Select
-                  label="Rental Duration"
+                <Input
+                  label="Rent Duration"
                   name="rentDuration"
                   value={formData.rentDuration}
                   onChange={handleChange}
-                  options={[
-                    { value: "daily", label: "Daily" },
-                    { value: "weekly", label: "Weekly" },
-                    { value: "monthly", label: "Monthly" },
-                  ]}
+                  placeholder="e.g., 1 month, 3 days"
                   required
                   disabled={loading}
                 />
@@ -513,6 +528,7 @@ const EditItem = () => {
                   name="securityDeposit"
                   value={formData.securityDeposit}
                   onChange={handleChange}
+                  placeholder="Enter security deposit"
                   prefix="Rs"
                   disabled={loading}
                 />
@@ -522,12 +538,14 @@ const EditItem = () => {
                   name="availabilityDate"
                   value={formData.availabilityDate}
                   onChange={handleChange}
+                  required
                   disabled={loading}
                 />
               </div>
             </div>
           )}
 
+          {/* Exchange Details Section (for Exchange type only) */}
           {type === "exchange" && (
             <div className="bg-card rounded-lg p-8 border border-gray-200">
               <H2 className="mb-6">Exchange Details</H2>
@@ -554,6 +572,42 @@ const EditItem = () => {
               </div>
             </div>
           )}
+
+          {/* Contact Information Section */}
+          <div className="bg-card rounded-lg p-8 border border-gray-200">
+            <H2 className="mb-6">Contact Information</H2>
+            <div className="space-y-6">
+              <Input
+                label="Name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter your name"
+                required
+                disabled={loading}
+              />
+              <Input
+                label="Phone Number"
+                type="tel"
+                name="phoneNumber"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                placeholder="Enter your phone number"
+                required
+                disabled={loading}
+              />
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="showPhoneNumber"
+                  checked={formData.showPhoneNumber}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <span className="text-sm">Show phone number in ad</span>
+              </label>
+            </div>
+          </div>
 
           {/* Submit and Cancel Buttons */}
           <div className="bg-card rounded-lg p-8 border border-gray-200">

@@ -175,8 +175,11 @@ const itemSchema = new mongoose.Schema({
   price: {
     amount: {
       type: Number,
-      required: true,
-      min: 0
+      min: 0, // Optional, only enforced when present
+      required: [
+        function() { return this.type === 'sell'; },
+        'Price amount is required for sell items'
+      ]
     },
     currency: {
       type: String,
@@ -189,7 +192,7 @@ const itemSchema = new mongoose.Schema({
   },
   images: [{
     url: String,
-    public_id: String, // Add this to store the Cloudinary public_id
+    public_id: String,
     isMain: Boolean,
     order: Number
   }],
@@ -225,57 +228,30 @@ const itemSchema = new mongoose.Schema({
     exchangePreferences: String
   },
   stats: {
-    views: {
-      type: Number,
-      default: 0
-    },
-    phones: {
-      type: Number,
-      default: 0
-    },
-    chats: {
-      type: Number,
-      default: 0
-    }
+    views: { type: Number, default: 0 },
+    phones: { type: Number, default: 0 },
+    chats: { type: Number, default: 0 }
   },
   contactInfo: {
     name: String,
     phoneNumber: String,
-    showPhoneNumber: {
-      type: Boolean,
-      default: false
-    }
+    showPhoneNumber: { type: Boolean, default: false }
   },
   visibility: {
-    startDate: {
-      type: Date,
-      default: Date.now
-    },
-    endDate: {
-      type: Date,
-      required: true
-    },
-    featured: {
-      type: Boolean,
-      default: false
-    },
-    urgent: {
-      type: Boolean,
-      default: false
-    }
+    startDate: { type: Date, default: Date.now },
+    endDate: { type: Date, required: true },
+    featured: { type: Boolean, default: false },
+    urgent: { type: Boolean, default: false }
   },
   moderationInfo: {
-    moderatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
+    moderatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     moderatedAt: Date,
     moderationNotes: String,
     rejectionReason: String
   }
 }, { timestamps: true });
 
-// Indexes for better query performance
+// Indexes (unchanged)
 itemSchema.index({ category: 1, status: 1 });
 itemSchema.index({ user: 1, status: 1 });
 itemSchema.index({ 'location.coordinates': '2dsphere' });
@@ -285,17 +261,17 @@ itemSchema.index({ 'visibility.featured': 1 });
 itemSchema.index({ 'visibility.urgent': 1 });
 itemSchema.index({ title: 'text', description: 'text' });
 
-// Virtual for remaining time
+// Virtual for remaining time (unchanged)
 itemSchema.virtual('remainingTime').get(function() {
   return this.visibility.endDate - new Date();
 });
 
-// Ensure at least one image is provided
+// Ensure at least one image is provided (unchanged)
 itemSchema.path('images').validate(function(images) {
   return images && images.length > 0;
 }, 'At least one image is required');
 
-// Ensure virtuals are included when converting to JSON
+// Ensure virtuals are included when converting to JSON (unchanged)
 itemSchema.set('toJSON', { virtuals: true });
 itemSchema.set('toObject', { virtuals: true });
 
