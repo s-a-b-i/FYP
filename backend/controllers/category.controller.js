@@ -257,3 +257,150 @@ export const toggleCategoryStatus = asyncHandler(async (req, res) => {
     });
   });
   
+
+  // Add this to your category.controller.js file
+
+export const getPopularCategories = asyncHandler(async (req, res) => {
+  const { limit = 6 } = req.query; // Default to 6 categories
+
+  const popularCategories = await Item.aggregate([
+    { $match: { status: 'active' } }, // Only count active items
+    { 
+      $group: {
+        _id: '$category',
+        itemCount: { $sum: 1 },
+        totalViews: { $sum: '$stats.views' },
+        totalInteractions: { 
+          $sum: { 
+            $add: ['$stats.views', '$stats.phones', '$stats.chats'] 
+          } 
+        }
+      } 
+    },
+    { 
+      $lookup: { 
+        from: 'categories', 
+        localField: '_id', 
+        foreignField: '_id', 
+        as: 'categoryData' 
+      } 
+    },
+    { $unwind: '$categoryData' },
+    { 
+      $project: { 
+        _id: '$categoryData._id',
+        name: '$categoryData.name',
+        slug: '$categoryData.slug',
+        icon: '$categoryData.icon',
+        itemCount: 1,
+        totalViews: 1,
+        totalInteractions: 1,
+        metadata: '$categoryData.metadata'
+      } 
+    },
+    { $sort: { totalInteractions: -1 } }, // Sort by most interactions
+    { $limit: parseInt(limit) }
+  ]);
+
+  res.json({
+    status: 'success',
+    data: popularCategories
+  });
+});
+
+// Add this to your category.controller.js file
+
+export const getPopularCategoriesWithItems = asyncHandler(async (req, res) => {
+  const { categoryLimit = 4, itemLimit = 5 } = req.query;
+
+  const popularCategories = await Item.aggregate([
+    { $match: { status: 'active' } },
+    { 
+      $group: {
+        _id: '$category',
+        itemCount: { $sum: 1 },
+        totalInteractions: { 
+          $sum: { $add: ['$stats.views', '$stats.phones', '$stats.chats'] } 
+        }
+      } 
+    },
+    { 
+      $lookup: { 
+        from: 'categories', 
+        localField: '_id', 
+        foreignField: '_id', 
+        as: 'categoryData' 
+      } 
+    },
+    { $unwind: '$categoryData' },
+    { 
+      $project: { 
+        _id: '$categoryData._id',
+        name: '$categoryData.name',
+        slug: '$categoryData.slug',
+        icon: '$categoryData.icon',
+        itemCount: 1,
+        totalInteractions: 1
+      } 
+    },
+    { $sort: { totalInteractions: -1 } },
+    { $limit: parseInt(categoryLimit) }
+  ]);
+
+  // For each popular category, fetch its top items
+  const categoriesWithItems = await Promise.all(
+    popularCategories.map(async (category) => {
+      const items = await Item.find({ 
+        category: category._id, 
+        status: 'active' 
+      })
+      .sort('-stats.views')
+      .limit(parseInt(itemLimit))
+      .lean();
+      
+      // Format items for the frontend ItemCard component
+      const formattedItems = items.map(item => ({
+        id: item._id,
+        title: item.title,
+        type: item.type,
+        price: item.price?.amount,
+        currency: item.price?.currency,
+        image: item.images?.find(img => img.isMain)?.url || item.images[0]?.url,
+        location: item.location?.address || 'Unknown location',
+        timeAgo: formatTimeAgo(item.createdAt),
+        condition: item.condition,
+        sustainabilityScore: 
+          item.metadata?.sustainabilityScore || 
+          Math.floor(Math.random() * 5) + 5, // Placeholder: random score between 5-10
+        tags: [item.sex].filter(Boolean),
+        visibility: {
+          featured: item.visibility?.featured || false,
+          urgent: item.visibility?.urgent || false
+        }
+      }));
+      
+      return {
+        ...category,
+        items: formattedItems
+      };
+    })
+  );
+  
+  res.json({
+    status: 'success',
+    data: categoriesWithItems
+  });
+});
+// Helper function to format time ago
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diffInMs = now - new Date(date);
+  const diffInHours = diffInMs / (1000 * 60 * 60);
+  
+  if (diffInHours < 24) {
+    return `${Math.floor(diffInHours)}h ago`;
+  } else {
+    const diffInDays = diffInHours / 24;
+    return `${Math.floor(diffInDays)}d ago`;
+  }
+}

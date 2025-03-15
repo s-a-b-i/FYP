@@ -8,11 +8,20 @@ import {
   getCategories,
   getCategoryById,
   uploadCategoryIcon,
-  toggleCategoryStatus
+  toggleCategoryStatus,
+  getPopularCategories,
+  getPopularCategoriesWithItems
 } from '../controllers/category.controller.js';
 import { upload } from '../middlewares/multer.middleware.js';
 
+
+
 const router = express.Router();
+
+// Add this to categoryRoutes.js
+router.get('/popular', getPopularCategories); // Public route that doesn't require auth
+router.get('/popular-with-items', getPopularCategoriesWithItems);
+
 router.post('/upload', isAuth, isAdmin, upload.single('icon'), uploadCategoryIcon);
 router.get('/', isAuth , getCategories);
 router.get('/:id', getCategoryById);

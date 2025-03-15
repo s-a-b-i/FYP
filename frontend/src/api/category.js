@@ -11,38 +11,34 @@ const api = axios.create({
 });
 
 export const categoryAPI = {
+  uploadCategoryImage: async (imageFile) => {
+    try {
+      const formData = new FormData();
+      formData.append('icon', imageFile);
 
-    uploadCategoryImage: async (imageFile) => {
-        try {
-          const formData = new FormData();
-          formData.append('icon', imageFile);
-      
-          const response = await api.post('/upload', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
-          return response.data;
-        } catch (error) {
-          throw error.response?.data || error;
+      const response = await api.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
         }
-      },
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 
-
-
-    
-      createCategory: async (categoryData) => {
-        try {
-          const response = await api.post('/', categoryData, {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
-          return response.data;
-        } catch (error) {
-          throw error.response?.data || error;
+  createCategory: async (categoryData) => {
+    try {
+      const response = await api.post('/', categoryData, {
+        headers: {
+          'Content-Type': 'application/json'
         }
-      },
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 
   getCategories: async () => {
     try {
@@ -78,8 +74,7 @@ export const categoryAPI = {
     }
   },
 
-// In your categoryAPI file
-deleteCategory: async (categoryId, forceDelete = false) => {
+  deleteCategory: async (categoryId, forceDelete = false) => {
     try {
       const response = await api.delete(`/${categoryId}`, {
         data: { forceDelete },
@@ -92,8 +87,6 @@ deleteCategory: async (categoryId, forceDelete = false) => {
       throw error;
     }
   },
-
-
 
   toggleCategoryStatus: async (categoryId) => {
     try {
@@ -122,6 +115,21 @@ deleteCategory: async (categoryId, forceDelete = false) => {
     }
   },
 
- 
+  getPopularCategories: async (limit = 6) => {
+    try {
+      const response = await api.get(`/popular?limit=${limit}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
 
+  getPopularCategoriesWithItems: async (categoryLimit = 4, itemLimit = 5) => {
+    try {
+      const response = await api.get(`/popular-with-items?categoryLimit=${categoryLimit}&itemLimit=${itemLimit}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 };

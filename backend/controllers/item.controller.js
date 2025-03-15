@@ -533,21 +533,46 @@ export const deleteItem = asyncHandler(async (req, res) => {
 // Get Item By ID
 export const getItemById = asyncHandler(async (req, res) => {
   const item = await Item.findById(req.params.id)
-    .populate('category')
-    .populate('user', 'name email profilePicture');
+    .populate('category', 'name') // Only fetch category name for efficiency työntekij
+
   if (!item) throw new ApiError('Item not found', 404);
 
+  // Populate user with basic fields
+  await item.populate('user', 'name email profilePicture createdAt');
+
+  // Fetch additional seller profile details
+  const sellerProfile = await Profile.findOne({ user: item.user._id }).select(
+    'name phone profilePhoto gender about'
+  );
+
+  // Increment views if not the owner
   if (!req.user || req.user._id.toString() !== item.user._id.toString()) {
     item.stats.views += 1;
     await item.save();
   }
 
+  // Format seller data
+  const seller = {
+    name: sellerProfile?.name || item.user.name || 'Private User',
+    avatar: sellerProfile?.profilePhoto || item.user.profilePicture || '/default-avatar.png',
+    email: item.user.email,
+    memberSince: item.user.createdAt 
+      ? new Date(item.user.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' }) 
+      : 'Unknown',
+    phone: sellerProfile?.phone || null,
+    gender: sellerProfile?.gender || null,
+    about: sellerProfile?.about || null,
+  };
+
+  // Prepare response
+  const responseItem = item.toObject();
+  responseItem.seller = seller;
+
   res.json({
     status: 'success',
-    data: item,
+    data: responseItem,
   });
 });
-
 // Toggle Item Status
 export const toggleItemStatus = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
