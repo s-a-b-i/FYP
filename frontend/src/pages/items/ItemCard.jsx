@@ -1,4 +1,4 @@
-import { Heart, MapPin, Clock, Tag, Star, AlertTriangle } from 'lucide-react';
+import { Heart, MapPin, Clock, Tag, Star, AlertTriangle, Repeat, Calendar } from 'lucide-react'; // Added Calendar for rent
 import { Link } from 'react-router-dom';
 import { H3 } from '@/components/shared/Heading';
 import { useState } from 'react';
@@ -9,15 +9,28 @@ const ItemCard = ({ item }) => {
   const typeStyles = {
     sell: 'bg-blue-50 text-blue-700 border-blue-300',
     rent: 'bg-green-50 text-green-700 border-green-300',
-    exchange: 'bg-purple-50 text-purple-700 border-purple-300'
+    exchange: 'bg-purple-50 text-purple-700 border-purple-300',
   };
 
-  // Format price with currency
+  // Format price for sell items
   const formatPrice = (price, currency = 'PKR') => {
     if (!price) return 'Contact for Price';
-    return currency === 'PKR'
-      ? `Rs. ${price.toLocaleString()}`
-      : `$${price.toLocaleString()}`;
+    return currency === 'PKR' ? `Rs. ${price.toLocaleString()}` : `$${price.toLocaleString()}`;
+  };
+
+  // Format rent details
+  const formatRent = (price, rentDetails, currency = 'PKR') => {
+    if (!price && !rentDetails?.duration) return 'Contact for Details';
+    const priceStr = price ? `${currency === 'PKR' ? 'Rs.' : '$'} ${price.toLocaleString()}` : '';
+    const durationStr = rentDetails?.duration ? `/${rentDetails.duration}` : '';
+    return `${priceStr}${durationStr}`.trim() || 'Contact for Details';
+  };
+
+  // Format exchange details
+  const formatExchange = (exchangeDetails) => {
+    if (exchangeDetails?.exchangeFor) return `Looking for: ${exchangeDetails.exchangeFor}`;
+    if (exchangeDetails?.exchangePreferences) return `Prefers: ${exchangeDetails.exchangePreferences}`;
+    return 'Open to Offers';
   };
 
   return (
@@ -48,7 +61,7 @@ const ItemCard = ({ item }) => {
           </button>
         </div>
 
-        {/* Image Container - 60% of card height */}
+        {/* Image Container */}
         <div className="relative h-[180px] overflow-hidden">
           <img
             src={item.image}
@@ -58,15 +71,12 @@ const ItemCard = ({ item }) => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
         </div>
 
-        {/* Content Section - 40% of card height */}
+        {/* Content Section */}
         <div className="p-3 flex-1 flex flex-col h-[120px]">
-          
-          {/* Title */}
           <H3 className="text-sm font-semibold text-gray-900 mb-1 truncate">
             {item.title}
           </H3>
 
-          {/* Location & Time */}
           <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
             <div className="flex items-center truncate max-w-[60%]">
               <MapPin className="w-3 h-3 mr-1 text-gray-400 flex-shrink-0" />
@@ -78,17 +88,35 @@ const ItemCard = ({ item }) => {
             </div>
           </div>
 
-          {/* Price Section */}
+          {/* Price/Rent/Exchange Section */}
           <div className="pt-1 mt-auto border-t border-gray-200 flex items-center justify-between">
             <div className="flex items-center text-gray-500">
-              <Tag className="w-3 h-3 mr-1 text-primary-main" />
-              <span className="text-xs font-medium">Price</span>
+              {item.type === 'sell' && (
+                <>
+                  <Tag className="w-3 h-3 mr-1 text-blue-600" />
+                  <span className="text-xs font-medium">Price</span>
+                </>
+              )}
+              {item.type === 'rent' && (
+                <>
+                  <Calendar className="w-3 h-3 mr-1 text-green-600" />
+                  <span className="text-xs font-medium">Rent</span>
+                </>
+              )}
+              {item.type === 'exchange' && (
+                <>
+                  <Repeat className="w-3 h-3 mr-1 text-purple-600" />
+                  <span className="text-xs font-medium">Exchange</span>
+                </>
+              )}
             </div>
-            <div className="font-bold text-black text-base">
-              {formatPrice(item.price, item.currency || 'PKR')}
+            <div className="font-bold text-black text-base truncate max-w-[60%]">
+              {item.type === 'sell' && formatPrice(item.price, item.currency || 'PKR')}
+              {item.type === 'rent' && formatRent(item.price, item.rentDetails, item.currency || 'PKR')}
+              {item.type === 'exchange' && formatExchange(item.exchangeDetails)}
             </div>
           </div>
-          
+
           {/* Featured & Urgent Badges */}
           {(item.visibility?.featured || item.visibility?.urgent) && (
             <div className="mt-1 flex flex-wrap gap-1">
