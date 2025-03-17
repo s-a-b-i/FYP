@@ -84,7 +84,7 @@ const ItemCard = ({ item }) => {
               <Tag className="w-3 h-3 mr-1 text-primary-main" />
               <span className="text-xs font-medium">Price</span>
             </div>
-            <div className="font-bold text-primary-main text-base">
+            <div className="font-bold text-black text-base">
               {formatPrice(item.price, item.currency || 'PKR')}
             </div>
           </div>
