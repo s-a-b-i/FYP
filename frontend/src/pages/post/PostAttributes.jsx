@@ -118,18 +118,28 @@ const PostAttributes = () => {
   };
 
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files); // Convert FileList to Array
+    console.log('Selected files:', files.length, files); // Debug log
+  
     if (files.length + previewImages.length > 12) {
       alert("Maximum 12 images allowed");
       return;
     }
-
+  
     const newPreviewImages = files.map((file) => URL.createObjectURL(file));
-    setPreviewImages((prev) => [...prev, ...newPreviewImages]);
-    setFormData((prev) => ({
-      ...prev,
-      images: [...prev.images, ...files],
-    }));
+    console.log('New preview images:', newPreviewImages.length); // Debug log
+  
+    setPreviewImages((prev) => {
+      const updated = [...prev, ...newPreviewImages];
+      console.log('Updated previewImages:', updated.length); // Debug log
+      return updated;
+    });
+  
+    setFormData((prev) => {
+      const updatedImages = [...prev.images, ...files];
+      console.log('Updated formData.images:', updatedImages.length); // Debug log
+      return { ...prev, images: updatedImages };
+    });
   };
 
   const removeImage = (index) => {
@@ -150,17 +160,30 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   try {
     setLoading(true);
-    const clothingCategoryId = 'clothing_category_id'; // Replace with actual ID
+    const clothingCategoryId = 'clothing_category_id';
     const isClothing = categoryId === clothingCategoryId;
 
+    // Basic validation
     if (isClothing && !formData.size) {
       throw new Error("Size is required for clothing items");
     }
     if (!formData.location) {
-      throw new Error("Location is required"); // Add validation
+      throw new Error("Location is required");
+    }
+    if (formData.images.length === 0) {
+      throw new Error("At least one image is required");
+    }
+    if (type === "exchange" && !formData.exchangeFor.trim()) {
+      throw new Error("Exchange For is required for exchange items");
+    }
+    if (type === "sell" && (!formData.price || Number(formData.price) <= 0)) {
+      throw new Error("Price is required and must be greater than 0 for sell items");
+    }
+    if (type === "rent" && (!formData.rentDuration || !formData.pricePerUnit || !formData.availabilityDate)) {
+      throw new Error("Rent duration, price per unit, and availability date are required for rent items");
     }
 
-    const itemData = new FormData(); // Use FormData for multipart upload
+    const itemData = new FormData();
     itemData.append("category", categoryId);
     itemData.append("type", type);
     itemData.append("title", formData.title);
@@ -171,7 +194,7 @@ const handleSubmit = async (e) => {
     itemData.append("material", formData.material);
     itemData.append("brand", formData.brand);
     itemData.append("color", formData.color);
-    itemData.append("location", JSON.stringify({ address: formData.location })); // Ensure object structure
+    itemData.append("location", JSON.stringify({ address: formData.location }));
 
     if (type === "sell") {
       itemData.append("price", JSON.stringify({ amount: Number(formData.price) }));
@@ -216,15 +239,17 @@ const handleSubmit = async (e) => {
       })
     );
 
+    console.log('Appending images:', formData.images.length);
     formData.images.forEach((image, index) => {
-      itemData.append("images", image); // Append files separately
+      itemData.append("images", image);
+      console.log(`Appended image ${index + 1}:`, image.name);
     });
 
     const response = await itemAPI.createItem(itemData);
 
-    if (formData.images.length > 0) {
-      await itemAPI.uploadItemImages(response.data._id, formData.images);
-    }
+    // Reset form state after successful submission
+    setPreviewImages([]);
+    setFormData((prev) => ({ ...prev, images: [] }));
 
     navigate("/success");
   } catch (err) {
@@ -233,6 +258,8 @@ const handleSubmit = async (e) => {
     setLoading(false);
   }
 };
+
+
   const getTypeStyles = () => {
     switch (type) {
       case "sell": return "bg-itemTypes-sell-bg text-itemTypes-sell-text";

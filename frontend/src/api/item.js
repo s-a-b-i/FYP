@@ -109,6 +109,7 @@ export const itemAPI = {
           'Content-Type': 'multipart/form-data', // Override default JSON header
         },
       });
+      console.log('API response images:', response.data.data.images.length); // Debug log
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
