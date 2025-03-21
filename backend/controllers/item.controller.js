@@ -7,21 +7,122 @@ import { createModerationNotification } from '../utils/notifications.js';
 import mongoose from 'mongoose';
 
 // Create Item
+// item.controller.js
+// item.controller.js
 export const createItem = asyncHandler(async (req, res) => {
-  const item = await Item.create({
-    ...req.body,
-    user: req.user._id,
-    visibility: {
-      ...req.body.visibility,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
-    },
-  });
+  const { 
+    category, type, title, description, condition, sex, size, material, brand, color, 
+    price, rentDetails, exchangeDetails, location, contactInfo, visibility 
+  } = req.body;
 
-  res.status(201).json({
-    status: 'success',
-    data: item,
-  });
+  // Parse JSON strings from FormData
+  const parsedLocation = typeof location === "string" ? JSON.parse(location) : location;
+  const parsedPrice = typeof price === "string" ? JSON.parse(price) : price;
+  const parsedRentDetails = typeof rentDetails === "string" ? JSON.parse(rentDetails) : rentDetails;
+  const parsedExchangeDetails = typeof exchangeDetails === "string" ? JSON.parse(exchangeDetails) : exchangeDetails;
+  const parsedContactInfo = typeof contactInfo === "string" ? JSON.parse(contactInfo) : contactInfo;
+
+  // Basic validation
+  if (!category || !type || !title || !description || !condition || !sex) {
+    throw new ApiError(400, 'Missing required fields');
+  }
+  if (!parsedLocation || !parsedLocation.address) {
+    throw new ApiError(400, 'Location address is required');
+  }
+
+  // Clothing-specific validation
+  const clothingCategoryId = 'clothing_category_id'; // Replace with actual ID
+  if (category === clothingCategoryId && !size) {
+    throw new ApiError(400, 'Size is required for clothing items');
+  }
+
+  // Type-specific validation
+  if (type === 'sell' && (!parsedPrice || !parsedPrice.amount)) {
+    throw new ApiError(400, 'Price amount is required for sell items');
+  }
+  if (type === 'rent') {
+    if (!parsedRentDetails || !parsedRentDetails.duration || !parsedRentDetails.pricePerUnit || !parsedRentDetails.availabilityDate) {
+      throw new ApiError(400, 'Rent items require duration, pricePerUnit, and availabilityDate');
+    }
+    if (!/^\d+ (day|week|month)s?$/.test(parsedRentDetails.duration)) {
+      throw new ApiError(400, 'Duration must be in format "X days/weeks/months"');
+    }
+  }
+  if (type === 'exchange') {
+    if (!parsedExchangeDetails || !parsedExchangeDetails.exchangeFor) {
+      throw new ApiError(400, 'Exchange items require exchangeFor');
+    }
+  }
+
+  // Handle image uploads
+  let uploadedImages = [];
+  if (req.files && req.files.length > 0) {
+    uploadedImages = await Promise.all(
+      req.files.map(async (file, index) => {
+        const result = await uploadToCloudinary(file.path);
+        if (!result.public_id || !result.secure_url) throw new ApiError(500, 'Cloudinary upload failed');
+        return {
+          url: result.secure_url,
+          public_id: result.public_id,
+          isMain: index === 0, // First image is main
+          order: index
+        };
+      })
+    );
+  }
+
+  // Enforce at least one image
+  if (uploadedImages.length === 0) {
+    throw new ApiError(400, 'At least one image is required');
+  }
+
+  const itemData = {
+    user: req.user._id,
+    category,
+    title,
+    description,
+    type,
+    condition,
+    sex,
+    size: category === clothingCategoryId ? size : undefined,
+    material,
+    brand,
+    color,
+    price: type === 'sell' ? { amount: parsedPrice.amount, currency: parsedPrice.currency || 'Rs', negotiable: parsedPrice.negotiable || false } : undefined,
+    images: uploadedImages,
+    location: { address: parsedLocation.address, coordinates: parsedLocation.coordinates || [] },
+    status: 'pending',
+    rentDetails: type === 'rent' ? {
+      duration: parsedRentDetails.duration,
+      durationUnit: parsedRentDetails.durationUnit || 'days',
+      pricePerUnit: parsedRentDetails.pricePerUnit,
+      securityDeposit: parsedRentDetails.securityDeposit || 0,
+      availabilityDate: new Date(parsedRentDetails.availabilityDate),
+      sizeAvailability: parsedRentDetails.sizeAvailability || [],
+      cleaningFee: parsedRentDetails.cleaningFee || 0,
+      lateFee: parsedRentDetails.lateFee || 0,
+      careInstructions: parsedRentDetails.careInstructions
+    } : undefined,
+    exchangeDetails: type === 'exchange' ? {
+      exchangeFor: parsedExchangeDetails.exchangeFor,
+      preferredSizes: parsedExchangeDetails.preferredSizes || [],
+      preferredCondition: parsedExchangeDetails.preferredCondition || 'any',
+      preferredBrands: parsedExchangeDetails.preferredBrands || [],
+      exchangePreferences: parsedExchangeDetails.exchangePreferences,
+      shippingPreference: parsedExchangeDetails.shippingPreference || 'local-only'
+    } : undefined,
+    stats: { views: 0, phones: 0, chats: 0 },
+    contactInfo: parsedContactInfo || {},
+    visibility: {
+      startDate: new Date(),
+      endDate: visibility?.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      featured: visibility?.featured || false,
+      urgent: visibility?.urgent || false
+    }
+  };
+
+  const item = await Item.create(itemData);
+  res.status(201).json({ status: 'success', data: item });
 });
 
 // Get Items (Public)
@@ -33,6 +134,8 @@ export const getItems = asyncHandler(async (req, res) => {
   const filter = { status: 'active' };
   if (req.query.category) filter.category = req.query.category;
   if (req.query.type) filter.type = req.query.type;
+  if (req.query.size) filter.size = req.query.size;
+  if (req.query.brand) filter.brand = { $regex: req.query.brand, $options: 'i' };
 
   const items = await Item.find(filter)
     .populate('category')
@@ -45,7 +148,7 @@ export const getItems = asyncHandler(async (req, res) => {
   res.json({
     status: 'success',
     data: items,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
   });
 });
 
@@ -58,138 +161,152 @@ export const getUserItems = asyncHandler(async (req, res) => {
     .populate('category')
     .sort('-createdAt');
 
-  res.json({
-    status: 'success',
-    data: items,
-  });
+  res.json({ status: 'success', data: items });
 });
 
 // Search Items (Public)
 export const searchItems = asyncHandler(async (req, res) => {
-  const { query, category, type, minPrice, maxPrice, condition, location } = req.query;
+  const { query, category, type, minPrice, maxPrice, condition, location, size, brand, color } = req.query;
   const filter = { status: 'active' };
 
   if (query) {
     filter.$or = [
       { title: { $regex: query, $options: 'i' } },
-      { description: { $regex: query, $options: 'i' } },
+      { description: { $regex: query, $options: 'i' } }
     ];
   }
   if (category) filter.category = category;
   if (type) filter.type = type;
   if (condition) filter.condition = condition;
   if (minPrice || maxPrice) {
-    filter.price = {};
-    if (minPrice) filter.price.$gte = parseFloat(minPrice);
-    if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    filter['price.amount'] = {};
+    if (minPrice) filter['price.amount'].$gte = parseFloat(minPrice);
+    if (maxPrice) filter['price.amount'].$lte = parseFloat(maxPrice);
   }
   if (location) {
     const coordinates = location.split(',').map(Number);
-    filter['location.coordinates'] = {
-      $near: { $geometry: { type: 'Point', coordinates }, $maxDistance: 50000 },
-    };
+    filter['location.coordinates'] = { $near: { $geometry: { type: 'Point', coordinates }, $maxDistance: 50000 } };
   }
+  if (size) filter.size = size;
+  if (brand) filter.brand = { $regex: brand, $options: 'i' };
+  if (color) filter.color = { $regex: color, $options: 'i' };
 
   const items = await Item.find(filter)
     .populate('category')
     .sort('-createdAt');
 
-  res.json({
-    status: 'success',
-    data: items,
-  });
+  res.json({ status: 'success', data: items });
 });
 
 // Update Item
+// item.controller.js
 export const updateItem = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  Object.assign(item, req.body);
+  const { size, material, brand, color, rentDetails, exchangeDetails, location } = req.body;
+
+  // Parse JSON strings if sent via FormData
+  const parsedLocation = typeof location === "string" ? JSON.parse(location) : location;
+  const parsedRentDetails = typeof rentDetails === "string" ? JSON.parse(rentDetails) : rentDetails;
+  const parsedExchangeDetails = typeof exchangeDetails === "string" ? JSON.parse(exchangeDetails) : exchangeDetails;
+
+  const clothingCategoryId = 'clothing_category_id';
+  if (item.category.toString() === clothingCategoryId && size && !['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Custom'].includes(size)) {
+    throw new ApiError(400, 'Invalid size for clothing item');
+  }
+
+  if (item.type === 'rent' && parsedRentDetails) {
+    if (parsedRentDetails.duration && !/^\d+ (day|week|month)s?$/.test(parsedRentDetails.duration)) {
+      throw new ApiError(400, 'Duration must be in format "X days/weeks/months"');
+    }
+  }
+  if (item.type === 'exchange' && parsedExchangeDetails && parsedExchangeDetails.preferredSizes) {
+    if (!parsedExchangeDetails.preferredSizes.every(s => ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Custom'].includes(s))) {
+      throw new ApiError(400, 'Invalid preferred sizes');
+    }
+  }
+
+  // Ensure location is updated as an object
+  if (parsedLocation) {
+    item.location = {
+      address: parsedLocation.address || item.location.address,
+      coordinates: parsedLocation.coordinates || item.location.coordinates || []
+    };
+  }
+
+  Object.assign(item, {
+    ...req.body,
+    location: item.location, // Preserve the updated location object
+    rentDetails: parsedRentDetails ? { ...item.rentDetails, ...parsedRentDetails } : item.rentDetails,
+    exchangeDetails: parsedExchangeDetails ? { ...item.exchangeDetails, ...parsedExchangeDetails } : item.exchangeDetails
+  });
+
   if (item.status === 'moderated') item.status = 'pending';
   await item.save();
 
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
 // Upload Item Images
 // Upload Item Images
 export const uploadItemImages = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  if (!req.files || req.files.length === 0) {
-    throw new ApiError(400, 'No images provided for upload');
-  }
+  if (!req.files || req.files.length === 0) throw new ApiError(400, 'No images provided');
 
-  // Clean up existing empty image entries
+  // Filter out invalid images and keep only those with public_id and url
   item.images = item.images.filter(img => img.url && img.public_id);
 
-  // Determine if this is the first upload for this item
+  // Check total image limit
+  const currentImageCount = item.images.length;
+  const newImageCount = req.files.length;
+  if (currentImageCount + newImageCount > 12) {
+    throw new ApiError(400, `Cannot upload ${newImageCount} more images. Maximum 12 images allowed per item (current: ${currentImageCount}).`);
+  }
+
   const isFirstUpload = item.images.length === 0;
 
   const uploadedImages = await Promise.all(
     req.files.map(async (file, index) => {
-      try {
-        const result = await uploadToCloudinary(file.path);
-        
-        if (!result.public_id || !result.secure_url) {
-          console.error('Invalid Cloudinary response:', result);
-          throw new ApiError(500, 'Cloudinary upload failed: missing required fields');
-        }
-        
-        return {
-          url: result.secure_url,
-          public_id: result.public_id,
-          isMain: index === 0 && isFirstUpload, // Make first image the main image only for first uploads
-          order: item.images.length + index,
-        };
-      } catch (error) {
-        console.error(`Error uploading file: ${file.path}`, error);
-        throw new ApiError(500, `Failed to upload image: ${error.message}`);
-      }
+      const result = await uploadToCloudinary(file.path);
+      if (!result.public_id || !result.secure_url) throw new ApiError(500, 'Cloudinary upload failed');
+      return {
+        url: result.secure_url,
+        public_id: result.public_id,
+        isMain: index === 0 && isFirstUpload, // Set first image as main only on initial upload
+        order: item.images.length + index
+      };
     })
   );
 
-  // Add the new images
   item.images.push(...uploadedImages);
-  
-  // Ensure at least one image is marked as main
+
+  // Ensure there's always a main image if images exist
   if (item.images.length > 0 && !item.images.some(img => img.isMain)) {
     item.images[0].isMain = true;
   }
 
   await item.save();
 
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
-// Increment Item Stats (Replaces recordInteraction)
+// Increment Item Stats
 export const incrementItemStats = asyncHandler(async (req, res) => {
   const { itemId, type } = req.params;
-  if (!['view', 'phone', 'chat'].includes(type)) throw new ApiError('Invalid stat type', 400);
+  if (!['view', 'phone', 'chat'].includes(type)) throw new ApiError(400, 'Invalid stat type');
 
   const item = await Item.findById(itemId);
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  // Increment the appropriate stat
   if (type === 'view') item.stats.views += 1;
   else if (type === 'phone') item.stats.phones += 1;
   else if (type === 'chat') item.stats.chats += 1;
 
   await item.save();
-
-  res.json({
-    status: 'success',
-    message: `${type} stat incremented`,
-    data: item.stats,
-  });
+  res.json({ status: 'success', message: `${type} stat incremented`, data: item.stats });
 });
 
 // Get Items Pending Moderation (Admin)
@@ -208,14 +325,14 @@ export const getItemsPendingModeration = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  const userIds = items.map((item) => item.user?._id).filter(Boolean);
+  const userIds = items.map(item => item.user?._id).filter(Boolean);
   const profiles = await Profile.find({ user: { $in: userIds } }).select('user name profilePhoto');
   const profileMap = profiles.reduce((map, profile) => {
     map[profile.user.toString()] = profile;
     return map;
   }, {});
 
-  const processedItems = items.map((item) => {
+  const processedItems = items.map(item => {
     const itemObj = item.toObject();
     if (itemObj.user && itemObj.user._id) {
       const userProfile = profileMap[itemObj.user._id.toString()];
@@ -226,11 +343,10 @@ export const getItemsPendingModeration = asyncHandler(async (req, res) => {
   });
 
   const total = await Item.countDocuments(filter);
-
   res.json({
     status: 'success',
     data: processedItems,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
   });
 });
 
@@ -238,16 +354,11 @@ export const getItemsPendingModeration = asyncHandler(async (req, res) => {
 export const getItemForModeration = asyncHandler(async (req, res) => {
   const item = await Item.findById(req.params.id)
     .populate('category')
-    .populate('user', 'email lastLogin memberSince') // Add memberSince here
+    .populate('user', 'email lastLogin memberSince')
     .populate('moderationInfo.moderatedBy', 'email');
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  // Fetch seller profile
-  const sellerProfile = await Profile.findOne({ user: item.user._id }).select(
-    'name phone profilePhoto gender about'
-  );
-
-  // Fetch moderator profile
+  const sellerProfile = await Profile.findOne({ user: item.user._id }).select('name phone profilePhoto gender about');
   const moderatorProfile = item.moderationInfo?.moderatedBy
     ? await Profile.findOne({ user: item.moderationInfo.moderatedBy._id }).select('name')
     : null;
@@ -260,10 +371,10 @@ export const getItemForModeration = asyncHandler(async (req, res) => {
   const similarItems = await Item.find({
     _id: { $ne: item._id },
     $or: [
-      { title: { $regex: item.title.split(' ').filter((w) => w.length > 3).join('|'), $options: 'i' } },
-      { category: item.category },
+      { title: { $regex: item.title.split(' ').filter(w => w.length > 3).join('|'), $options: 'i' } },
+      { category: item.category }
     ],
-    status: 'active',
+    status: 'active'
   })
     .select('title images.url price')
     .limit(5);
@@ -277,56 +388,45 @@ export const getItemForModeration = asyncHandler(async (req, res) => {
     gender: sellerProfile ? sellerProfile.gender : null,
     about: sellerProfile ? sellerProfile.about : null,
     createdAt: item.user.createdAt,
-    memberSince: item.user.memberSince, // Include memberSince
-    memberSinceFormatted: item.user.memberSinceFormatted // Include formatted version
+    memberSince: item.user.memberSince
   };
 
-  // Enhance item with moderatorProfile
   const enhancedItem = item.toObject();
-  if (moderatorProfile) {
-    enhancedItem.moderatorProfile = { name: moderatorProfile.name };
-  }
+  if (moderatorProfile) enhancedItem.moderatorProfile = { name: moderatorProfile.name };
 
   res.json({
     status: 'success',
-    data: { item: enhancedItem, seller, userHistory, similarItems },
+    data: { item: enhancedItem, seller, userHistory, similarItems }
   });
 });
 
 // Moderate Item (Admin)
 export const moderateItem = asyncHandler(async (req, res) => {
   const { status, moderationNotes, rejectionReason, featuredItem, urgentItem } = req.body;
-  if (!['active', 'moderated'].includes(status)) throw new ApiError('Invalid moderation status', 400);
+  if (!['active', 'moderated'].includes(status)) throw new ApiError(400, 'Invalid moderation status');
 
   const item = await Item.findById(req.params.id);
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
   item.status = status;
   item.moderationInfo = {
     moderatedBy: req.user._id,
     moderatedAt: new Date(),
     moderationNotes,
-    rejectionReason: status === 'moderated' ? rejectionReason : undefined,
+    rejectionReason: status === 'moderated' ? rejectionReason : undefined
   };
-
   if (featuredItem !== undefined) item.visibility.featured = featuredItem;
   if (urgentItem !== undefined) item.visibility.urgent = urgentItem;
 
   await item.save();
+  await createModerationNotification(item.user, status, rejectionReason, item._id).catch(err =>
+    console.error('Notification error:', err)
+  );
 
-  try {
-    await createModerationNotification(item.user, status, rejectionReason, item._id);
-  } catch (error) {
-    console.error('Failed to send moderation notification:', error);
-  }
-
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
-// Get User Item Stats (New Controller)
+// Get User Item Stats
 export const getUserItemStats = asyncHandler(async (req, res) => {
   const { period = '30d' } = req.query;
   const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
@@ -337,43 +437,18 @@ export const getUserItemStats = asyncHandler(async (req, res) => {
     {
       $facet: {
         byStatus: [
-          {
-            $group: {
-              _id: '$status',
-              count: { $sum: 1 },
-              totalViews: { $sum: '$stats.views' },
-              totalPhones: { $sum: '$stats.phones' },
-              totalChats: { $sum: '$stats.chats' },
-            },
-          },
+          { $group: { _id: '$status', count: { $sum: 1 }, totalViews: { $sum: '$stats.views' }, totalPhones: { $sum: '$stats.phones' }, totalChats: { $sum: '$stats.chats' } } }
         ],
         topItems: [
-          {
-            $project: {
-              title: 1,
-              status: 1,
-              views: '$stats.views',
-              phones: '$stats.phones',
-              chats: '$stats.chats',
-              interactions: { $sum: ['$stats.views', '$stats.phones', '$stats.chats'] },
-            },
-          },
+          { $project: { title: 1, status: 1, views: '$stats.views', phones: '$stats.phones', chats: '$stats.chats', interactions: { $sum: ['$stats.views', '$stats.phones', '$stats.chats'] } } },
           { $sort: { interactions: -1 } },
-          { $limit: 5 },
+          { $limit: 5 }
         ],
         totals: [
-          {
-            $group: {
-              _id: null,
-              totalItems: { $sum: 1 },
-              totalViews: { $sum: '$stats.views' },
-              totalPhones: { $sum: '$stats.phones' },
-              totalChats: { $sum: '$stats.chats' },
-            },
-          },
-        ],
-      },
-    },
+          { $group: { _id: null, totalItems: { $sum: 1 }, totalViews: { $sum: '$stats.views' }, totalPhones: { $sum: '$stats.phones' }, totalChats: { $sum: '$stats.chats' } } }
+        ]
+      }
+    }
   ]);
 
   res.json({
@@ -381,12 +456,12 @@ export const getUserItemStats = asyncHandler(async (req, res) => {
     data: {
       byStatus: stats[0].byStatus,
       topItems: stats[0].topItems,
-      totals: stats[0].totals[0] || { totalItems: 0, totalViews: 0, totalPhones: 0, totalChats: 0 },
-    },
+      totals: stats[0].totals[0] || { totalItems: 0, totalViews: 0, totalPhones: 0, totalChats: 0 }
+    }
   });
 });
 
-// Get Admin Dashboard Stats (New Controller)
+// Get Admin Dashboard Stats
 export const getAdminDashboardStats = asyncHandler(async (req, res) => {
   const { period = '30d' } = req.query;
   const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
@@ -397,99 +472,44 @@ export const getAdminDashboardStats = asyncHandler(async (req, res) => {
     {
       $facet: {
         trend: [
-          {
-            $group: {
-              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-              views: { $sum: '$stats.views' },
-              phones: { $sum: '$stats.phones' },
-              chats: { $sum: '$stats.chats' },
-            },
-          },
-          { $sort: { '_id': 1 } },
+          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, views: { $sum: '$stats.views' }, phones: { $sum: '$stats.phones' }, chats: { $sum: '$stats.chats' } } },
+          { $sort: { '_id': 1 } }
         ],
         byCategory: [
-          {
-            $group: {
-              _id: '$category',
-              views: { $sum: '$stats.views' },
-              interactions: { $sum: { $add: ['$stats.views', '$stats.phones', '$stats.chats'] } },
-            },
-          },
+          { $group: { _id: '$category', views: { $sum: '$stats.views' }, interactions: { $sum: { $add: ['$stats.views', '$stats.phones', '$stats.chats'] } } } },
           { $lookup: { from: 'categories', localField: '_id', foreignField: '_id', as: 'category' } },
           { $unwind: '$category' },
-          { $project: { name: '$category.name', views: 1, interactions: 1 } },
+          { $project: { name: '$category.name', views: 1, interactions: 1 } }
         ],
         totals: [
-          {
-            $group: {
-              _id: null,
-              totalItems: { $sum: 1 },
-              totalViews: { $sum: '$stats.views' },
-              totalInteractions: { $sum: { $add: ['$stats.views', '$stats.phones', '$stats.chats'] } },
-            },
-          },
+          { $group: { _id: null, totalItems: { $sum: 1 }, totalViews: { $sum: '$stats.views' }, totalInteractions: { $sum: { $add: ['$stats.views', '$stats.phones', '$stats.chats'] } } } }
         ],
         topItems: [
-          {
-            $project: {
-              title: 1,
-              status: 1,
-              views: '$stats.views',
-              phones: '$stats.phones',
-              chats: '$stats.chats',
-              interactions: { $sum: ['$stats.views', '$stats.phones', '$stats.chats'] },
-            },
-          },
+          { $project: { title: 1, status: 1, views: '$stats.views', phones: '$stats.phones', chats: '$stats.chats', interactions: { $sum: ['$stats.views', '$stats.phones', '$stats.chats'] } } },
           { $sort: { interactions: -1 } },
-          { $limit: 10 },
+          { $limit: 10 }
         ],
         moderationStats: [
           { $match: { 'moderationInfo.moderatedAt': { $gte: startDate } } },
-          {
-            $group: {
-              _id: '$moderationInfo.moderatedBy',
-              approved: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-              rejected: { $sum: { $cond: [{ $eq: ['$status', 'moderated'] }, 1, 0] } },
-            },
-          },
-          // Change $lookup to profiles instead of users
+          { $group: { _id: '$moderationInfo.moderatedBy', approved: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } }, rejected: { $sum: { $cond: [{ $eq: ['$status', 'moderated'] }, 1, 0] } } } },
           { $lookup: { from: 'profiles', localField: '_id', foreignField: 'user', as: 'moderatorProfile' } },
           { $unwind: '$moderatorProfile' },
-          { $project: { 
-            moderator: '$moderatorProfile.name', 
-            approved: 1, 
-            rejected: 1 
-          } },
+          { $project: { moderator: '$moderatorProfile.name', approved: 1, rejected: 1 } }
         ],
         activeItems: [
           { $match: { status: 'active' } },
-          {
-            $project: {
-              title: 1,
-              views: '$stats.views',
-              phones: '$stats.phones',
-              chats: '$stats.chats',
-            },
-          },
+          { $project: { title: 1, views: '$stats.views', phones: '$stats.phones', chats: '$stats.chats' } },
           { $sort: { views: -1 } },
-          { $limit: 50 },
+          { $limit: 50 }
         ],
         soldItems: [
           { $match: { status: 'sold' } },
-          {
-            $project: {
-              title: 1,
-              views: '$stats.views',
-              phones: '$stats.phones',
-              chats: '$stats.chats',
-              soldAt: '$updatedAt',
-            },
-          },
+          { $project: { title: 1, views: '$stats.views', phones: '$stats.phones', chats: '$stats.chats', soldAt: '$updatedAt' } },
           { $sort: { soldAt: -1 } },
-          { $limit: 50 },
-        ],
-      },
-    },
+          { $limit: 50 }
+        ]
+      }
+    }
   ]);
 
   const pendingItems = await Item.countDocuments({ status: 'pending' });
@@ -506,25 +526,19 @@ export const getAdminDashboardStats = asyncHandler(async (req, res) => {
       moderationStats: stats[0].moderationStats,
       pendingItems,
       activeItems: { count: activeItemsCount, details: stats[0].activeItems },
-      soldItems: { count: soldItemsCount, details: stats[0].soldItems },
-    },
+      soldItems: { count: soldItemsCount, details: stats[0].soldItems }
+    }
   });
 });
 
-// Existing Controllers (Updated as Needed)
 // Delete Item
 export const deleteItem = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  // Delete associated images from Cloudinary, skipping those without public_id
   await Promise.all(
-    item.images
-      .filter(image => image.public_id) // Only process images with a public_id
-      .map(image => deleteFromCloudinary(image.public_id))
+    item.images.filter(image => image.public_id).map(image => deleteFromCloudinary(image.public_id))
   );
-
-  // Delete the item from the database
   await Item.deleteOne({ _id: item._id });
 
   res.json({ status: 'success', data: null });
@@ -532,68 +546,51 @@ export const deleteItem = asyncHandler(async (req, res) => {
 
 // Get Item By ID
 export const getItemById = asyncHandler(async (req, res) => {
-  const item = await Item.findById(req.params.id)
-    .populate('category', 'name') // Only fetch category name for efficiency työntekij
+  const item = await Item.findById(req.params.id).populate('category', 'name');
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  if (!item) throw new ApiError('Item not found', 404);
-
-  // Populate user with basic fields
   await item.populate('user', 'name email profilePicture createdAt');
+  const sellerProfile = await Profile.findOne({ user: item.user._id }).select('name phone profilePhoto gender about');
 
-  // Fetch additional seller profile details
-  const sellerProfile = await Profile.findOne({ user: item.user._id }).select(
-    'name phone profilePhoto gender about'
-  );
-
-  // Increment views if not the owner
   if (!req.user || req.user._id.toString() !== item.user._id.toString()) {
     item.stats.views += 1;
     await item.save();
   }
 
-  // Format seller data
   const seller = {
     name: sellerProfile?.name || item.user.name || 'Private User',
     avatar: sellerProfile?.profilePhoto || item.user.profilePicture || '/default-avatar.png',
     email: item.user.email,
-    memberSince: item.user.createdAt 
-      ? new Date(item.user.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' }) 
+    memberSince: item.user.createdAt
+      ? new Date(item.user.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' })
       : 'Unknown',
     phone: sellerProfile?.phone || null,
     gender: sellerProfile?.gender || null,
-    about: sellerProfile?.about || null,
+    about: sellerProfile?.about || null
   };
 
-  // Prepare response
   const responseItem = item.toObject();
   responseItem.seller = seller;
 
-  res.json({
-    status: 'success',
-    data: responseItem,
-  });
+  res.json({ status: 'success', data: responseItem });
 });
+
 // Toggle Item Status
 export const toggleItemStatus = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  if (!['active', 'inactive'].includes(item.status))
-    throw new ApiError('Item cannot be toggled from current status', 400);
-
+  if (!['active', 'inactive'].includes(item.status)) throw new ApiError(400, 'Item cannot be toggled');
   item.status = item.status === 'active' ? 'inactive' : 'active';
   await item.save();
 
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
 // Mark Item As Sold
 export const markItemAsSold = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
   item.status = 'sold';
   await item.save();
@@ -608,143 +605,108 @@ export const getFeaturedItems = asyncHandler(async (req, res) => {
     .sort('-createdAt')
     .limit(10);
 
-  res.json({
-    status: 'success',
-    data: items,
-  });
+  res.json({ status: 'success', data: items });
 });
 
 // Get Related Items
 export const getRelatedItems = asyncHandler(async (req, res) => {
   const item = await Item.findById(req.params.id);
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
   const relatedItems = await Item.find({
     category: item.category,
     _id: { $ne: item._id },
     status: 'active',
+    size: item.size // Match size for clothing items
   })
     .populate('category')
     .limit(6);
 
-  res.json({
-    status: 'success',
-    data: relatedItems,
-  });
+  res.json({ status: 'success', data: relatedItems });
 });
 
 // Extend Item Visibility
 export const extendItemVisibility = asyncHandler(async (req, res) => {
   const { days } = req.body;
-  if (!days || days <= 0 || days > 90) throw new ApiError('Invalid extension period', 400);
+  if (!days || days <= 0 || days > 90) throw new ApiError(400, 'Invalid extension period');
 
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
   const newEndDate = new Date(item.visibility.endDate);
   newEndDate.setDate(newEndDate.getDate() + days);
-
   item.visibility.endDate = newEndDate;
   await item.save();
 
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
 // Update Item Images
 export const updateItemImages = asyncHandler(async (req, res) => {
   const { images } = req.body;
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  const hasMainImage = images.some((img) => img.isMain);
-  if (!hasMainImage) throw new ApiError('At least one image must be set as main', 400);
+  const hasMainImage = images.some(img => img.isMain);
+  if (!hasMainImage) throw new ApiError(400, 'At least one image must be main');
 
-  images.forEach((updateImage) => {
+  images.forEach(updateImage => {
     const image = item.images.id(updateImage.id);
     if (image) {
       image.isMain = updateImage.isMain;
       image.order = updateImage.order;
     }
   });
-
   await item.save();
 
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
 // Delete Item Image
 export const deleteItemImage = asyncHandler(async (req, res) => {
   const { imageId } = req.params;
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
-  if (item.images.length <= 1) throw new ApiError('Cannot delete the only image', 400);
+  if (item.images.length <= 1) throw new ApiError(400, 'Cannot delete the only image');
 
   const image = item.images.id(imageId);
-  if (!image) throw new ApiError('Image not found', 404);
+  if (!image) throw new ApiError(404, 'Image not found');
 
   if (image.isMain && item.images.length > 1) {
-    const nextImage = item.images.find((img) => img._id.toString() !== imageId);
+    const nextImage = item.images.find(img => img._id.toString() !== imageId);
     if (nextImage) nextImage.isMain = true;
   }
 
-  if (image.public_id) { // Only attempt deletion if public_id exists
-    try {
-      await deleteFromCloudinary(image.public_id);
-    } catch (error) {
-      console.error('Failed to delete image from Cloudinary:', error);
-    }
-  } else {
-    console.warn(`Image ${imageId} has no public_id, skipping Cloudinary deletion`);
-  }
-
+  if (image.public_id) await deleteFromCloudinary(image.public_id).catch(err => console.error('Cloudinary error:', err));
   item.images.pull(imageId);
   await item.save();
 
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
 // Bulk Moderate Items (Admin)
 export const bulkModerateItems = asyncHandler(async (req, res) => {
   const { itemIds, status, moderationNotes } = req.body;
-  if (!Array.isArray(itemIds) || itemIds.length === 0)
-    throw new ApiError('Item IDs must be provided as an array', 400);
-  if (!['active', 'moderated'].includes(status))
-    throw new ApiError('Invalid moderation status', 400);
+  if (!Array.isArray(itemIds) || itemIds.length === 0) throw new ApiError(400, 'Item IDs must be an array');
+  if (!['active', 'moderated'].includes(status)) throw new ApiError(400, 'Invalid moderation status');
 
   const result = await Item.updateMany(
     { _id: { $in: itemIds }, status: 'pending' },
-    {
-      status,
-      moderationInfo: { moderatedBy: req.user._id, moderatedAt: new Date(), moderationNotes },
-    }
+    { status, moderationInfo: { moderatedBy: req.user._id, moderatedAt: new Date(), moderationNotes } }
   );
 
   if (result.nModified > 0) {
     Item.find({ _id: { $in: itemIds } })
       .select('user')
-      .then((items) => {
-        items.forEach((item) => {
-          createModerationNotification(item.user, status).catch((err) =>
-            console.error('Notification error:', err)
-          );
+      .then(items => {
+        items.forEach(item => {
+          createModerationNotification(item.user, status).catch(err => console.error('Notification error:', err));
         });
       });
   }
 
-  res.json({
-    status: 'success',
-    data: { modifiedCount: result.nModified, totalCount: itemIds.length },
-  });
+  res.json({ status: 'success', data: { modifiedCount: result.nModified, totalCount: itemIds.length } });
 });
 
 // Get All Moderated Items (Admin)
@@ -774,8 +736,8 @@ export const getModeratedItems = asyncHandler(async (req, res) => {
 
   const total = await Item.countDocuments(filter);
 
-  const userIds = items.map((item) => item.user?._id).filter(Boolean);
-  const moderatorIds = items.map((item) => item.moderationInfo?.moderatedBy?._id).filter(Boolean);
+  const userIds = items.map(item => item.user?._id).filter(Boolean);
+  const moderatorIds = items.map(item => item.moderationInfo?.moderatedBy?._id).filter(Boolean);
   const allProfileIds = [...new Set([...userIds, ...moderatorIds])];
   const profiles = await Profile.find({ user: { $in: allProfileIds } });
 
@@ -784,14 +746,10 @@ export const getModeratedItems = asyncHandler(async (req, res) => {
     return map;
   }, {});
 
-  const enhancedItems = items.map((item) => {
+  const enhancedItems = items.map(item => {
     const itemObj = item.toObject({ virtuals: true });
-    if (item.user && profileMap[item.user._id.toString()])
-      itemObj.sellerProfile = profileMap[item.user._id.toString()];
-    if (
-      item.moderationInfo?.moderatedBy &&
-      profileMap[item.moderationInfo.moderatedBy._id.toString()]
-    )
+    if (item.user && profileMap[item.user._id.toString()]) itemObj.sellerProfile = profileMap[item.user._id.toString()];
+    if (item.moderationInfo?.moderatedBy && profileMap[item.moderationInfo.moderatedBy._id.toString()])
       itemObj.moderatorProfile = profileMap[item.moderationInfo.moderatedBy._id.toString()];
     return itemObj;
   });
@@ -799,7 +757,7 @@ export const getModeratedItems = asyncHandler(async (req, res) => {
   res.json({
     status: 'success',
     data: enhancedItems,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
   });
 });
 
@@ -809,7 +767,7 @@ export const reviseModeration = asyncHandler(async (req, res) => {
   const { status, moderationNotes } = req.body;
 
   const item = await Item.findById(id);
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
   item.status = status;
   item.moderationInfo = {
@@ -817,70 +775,37 @@ export const reviseModeration = asyncHandler(async (req, res) => {
     moderatedBy: item.moderationInfo.moderatedBy || req.user._id,
     moderatedAt: item.moderationInfo.moderatedAt || new Date(),
     moderationNotes: moderationNotes || item.moderationInfo.moderationNotes,
-    rejectionReason:
-      status === 'moderated' ? req.body.rejectionReason || item.moderationInfo.rejectionReason : undefined,
+    rejectionReason: status === 'moderated' ? req.body.rejectionReason || item.moderationInfo.rejectionReason : undefined,
     revisedBy: req.user._id,
     revisedAt: new Date(),
     revisionNotes: moderationNotes,
-    previousStatus: item.status,
+    previousStatus: item.status
   };
 
   await item.save();
+  await createModerationNotification(item.user, status, moderationNotes, item._id).catch(err =>
+    console.error('Notification error:', err)
+  );
 
-  try {
-    await createModerationNotification(item.user, status, moderationNotes, item._id);
-  } catch (error) {
-    console.error('Failed to send moderation notification:', error);
-  }
-
-  res.json({
-    status: 'success',
-    data: item,
-  });
+  res.json({ status: 'success', data: item });
 });
 
 // Check Item Status
 export const checkItemStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const item = await Item.findById(id).select('status moderationInfo').lean();
-  if (!item) throw new ApiError('Item not found', 404);
+  if (!item) throw new ApiError(404, 'Item not found');
 
   let message = '';
   switch (item.status) {
-    case 'pending':
-      message = 'Your item is pending review by our moderation team.';
-      break;
-    case 'active':
-      message = 'Your item is active and visible to buyers.';
-      break;
-    case 'inactive':
-      message = 'Your item is currently inactive and not visible to buyers.';
-      break;
-    case 'moderated':
-      message = `Your item was not approved: ${
-        item.moderationInfo?.rejectionReason || 'Please check and update your listing.'
-      }`;
-      break;
-    case 'sold':
-      message = 'This item has been marked as sold.';
-      break;
-    case 'expired':
-      message = 'This listing has expired.';
-      break;
-    default:
-      message = 'Item status unknown.';
+    case 'pending': message = 'Your item is pending review.'; break;
+    case 'active': message = 'Your item is active and visible.'; break;
+    case 'inactive': message = 'Your item is inactive.'; break;
+    case 'moderated': message = `Your item was not approved: ${item.moderationInfo?.rejectionReason || 'Check listing.'}`; break;
+    case 'sold': message = 'This item has been sold.'; break;
+    case 'expired': message = 'This listing has expired.'; break;
+    default: message = 'Item status unknown.';
   }
 
-  res.json({
-    status: 'success',
-    data: { status: item.status, message },
-  });
+  res.json({ status: 'success', data: { status: item.status, message } });
 });
-
-
-
-
-
-
-
-

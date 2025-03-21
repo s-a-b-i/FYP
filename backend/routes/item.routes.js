@@ -14,7 +14,7 @@ import {
   getAdminDashboardStats,
   deleteItem,
   getItemById,
-  toggleItemStatus,
+  toggleItemStatus, 
   markItemAsSold,
   getFeaturedItems,
   getRelatedItems,
@@ -26,8 +26,8 @@ import {
   reviseModeration,
   checkItemStatus,
 } from '../controllers/item.controller.js';
-import { isAuth, isAdmin } from '../middlewares/verifyToken.js'; // Updated import
-import { upload } from '../middlewares/multer.middleware.js'; // Assuming multer middleware for file uploads
+import { isAuth, isAdmin } from '../middlewares/verifyToken.js';
+import { uploadMultiple } from '../middlewares/multer.middleware.js'; // Updated import
 
 const router = express.Router();
 
@@ -39,10 +39,10 @@ router.get('/:id', getItemById);
 router.get('/:id/related', getRelatedItems);
 
 // Authenticated User Routes
-router.post('/', isAuth, createItem);
+router.post('/', isAuth,uploadMultiple, createItem);
 router.get('/user/items', isAuth, getUserItems);
 router.put('/:id', isAuth, updateItem);
-router.post('/:id/images', isAuth, upload.array('images', 10), uploadItemImages);
+router.post('/:id/images', isAuth, uploadMultiple, uploadItemImages); // Updated to uploadMultiple, limit 12
 router.put('/:id/images', isAuth, updateItemImages);
 router.delete('/:id/images/:imageId', isAuth, deleteItemImage);
 router.delete('/:id', isAuth, deleteItem);
@@ -63,6 +63,5 @@ router.put('/admin/bulk-moderate', isAuth, isAdmin, bulkModerateItems);
 router.get('/admin/moderated', isAuth, isAdmin, getModeratedItems);
 router.patch('/admin/revise/:id', isAuth, isAdmin, reviseModeration);
 router.get('/admin/dashboard-stats', isAuth, isAdmin, getAdminDashboardStats);
-
 
 export default router;

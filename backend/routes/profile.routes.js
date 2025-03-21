@@ -1,6 +1,5 @@
-// routes/profile.routes.js
 import { Router } from 'express';
-import { upload } from '../middlewares/multer.middleware.js';
+import { uploadSingleProfile } from '../middlewares/multer.middleware.js'; // Updated import
 import { verifyToken } from '../middlewares/verifyToken.js';
 import {
   getProfile,
@@ -13,16 +12,23 @@ import {
 
 const router = Router();
 
+// Log incoming requests for debugging
+router.use((req, res, next) => {
+  console.log('Request Method:', req.method);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Cookies:', req.cookies);
+  next();
+});
+
 // Apply authentication middleware to all routes
 router.use(verifyToken);
 
 // Profile routes
-// routes/profile.routes.js
-router.post('/create', upload.single('profilePhoto'), createProfile);
+router.post('/create', uploadSingleProfile, createProfile);
 router.get('/me', getProfile);
-router.patch('/update', upload.single('profilePhoto'), updateProfile);
-router.patch('/photo', upload.single('profilePhoto'), uploadProfilePhoto);
+router.patch('/update', uploadSingleProfile, updateProfile);
+router.patch('/photo', uploadSingleProfile, uploadProfilePhoto);
 router.patch('/social-connections', updateSocialConnections);
-router.delete('/delete-account' , deleteAccount);
+router.delete('/delete-account', deleteAccount);
 
 export default router;

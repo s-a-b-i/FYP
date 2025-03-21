@@ -1,4 +1,3 @@
-// middlewares/multer.middleware.js
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -45,35 +44,44 @@ if (!fs.existsSync(tempDir)) {
 }
 
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cleanupTempFiles(); // Clean up before storing new file
-        cb(null, tempDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + getExtension(file.originalname));
-    }
+  destination: function (req, file, cb) {
+    cleanupTempFiles(); // Clean up before storing new files
+    cb(null, tempDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + getExtension(file.originalname));
+  }
 });
 
 function getExtension(filename) {
-    return filename.substring(filename.lastIndexOf('.'));
+  return filename.substring(filename.lastIndexOf('.'));
 }
 
 const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-    } else {
-        cb(new ApiError(400, "Only image files are allowed"), false);
-    }
+  // Add safeguard for undefined headers
+  if (!req || !req.headers || !req.headers['content-type']) {
+    return cb(new ApiError(400, "Missing or invalid content-type header. Expected multipart/form-data"), false);
+  }
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(400, "Only image files are allowed"), false);
+  }
 };
 
 const limits = {
-    fileSize: 5 * 1024 * 1024, // 5 MB limit
-    files: 1 // Maximum 1 file per request
+  fileSize: 5 * 1024 * 1024, // 5 MB per file
 };
 
-export const upload = multer({ 
-    storage,
-    fileFilter,
-    limits
+// Create a base multer instance
+const upload = multer({
+  storage,
+  fileFilter,
+  limits
 });
+
+// Export pre-configured middleware functions
+export const uploadSingleProfile = upload.single('profilePhoto'); // For profile photo uploads
+export const uploadSingleCategory = upload.single('icon'); // For category icon uploads
+export const uploadMultiple = upload.array('images', 12); // For multiple file uploads (e.g., item images)

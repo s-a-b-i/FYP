@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapPin, Clock, Phone, MessageCircle, Share2, ChevronLeft, ChevronRight, Heart, Repeat, Calendar } from 'lucide-react'; // Added Calendar
+import { MapPin, Clock, Phone, MessageCircle, Share2, ChevronLeft, ChevronRight, Heart, Repeat, Calendar } from 'lucide-react';
 import { itemAPI } from '@/api/item';
 import RelatedItems from './RelatedItems';
 
@@ -65,11 +65,11 @@ const ItemDetail = () => {
     return new Date(timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const formatRent = (price, rentDetails, currency = 'Rs') => {
-    if (!price && !rentDetails?.duration) return 'Contact for Details';
-    const priceStr = price ? `${currency === 'Rs' ? 'Rs' : '$'} ${price.toLocaleString()}` : '';
-    const durationStr = rentDetails?.duration ? `/${rentDetails.duration}` : '';
-    return `${priceStr}${durationStr}`.trim() || 'Contact for Details';
+  const formatRent = (rentDetails, currency = 'Rs') => {
+    if (!rentDetails?.pricePerUnit || !rentDetails?.duration) return 'Contact for Details';
+    const priceStr = `${currency === 'Rs' ? 'Rs' : '$'} ${rentDetails.pricePerUnit.toLocaleString()}`;
+    const durationStr = `/${rentDetails.duration}`;
+    return `${priceStr}${durationStr}`.trim();
   };
 
   return (
@@ -132,8 +132,11 @@ const ItemDetail = () => {
                           <span className="text-2xl font-bold text-black">Exchange Offer</span>
                         </div>
                         {item.exchangeDetails?.exchangeFor && <p className="text-gray-700">Looking for: {item.exchangeDetails.exchangeFor}</p>}
+                        {item.exchangeDetails?.preferredSizes?.length > 0 && <p className="text-gray-700">Preferred Sizes: {item.exchangeDetails.preferredSizes.join(', ')}</p>}
+                        {item.exchangeDetails?.preferredCondition && <p className="text-gray-700">Preferred Condition: {item.exchangeDetails.preferredCondition}</p>}
+                        {item.exchangeDetails?.preferredBrands?.length > 0 && <p className="text-gray-700">Preferred Brands: {item.exchangeDetails.preferredBrands.join(', ')}</p>}
                         {item.exchangeDetails?.exchangePreferences && <p className="text-gray-700">Preferences: {item.exchangeDetails.exchangePreferences}</p>}
-                        {!item.exchangeDetails?.exchangeFor && !item.exchangeDetails?.exchangePreferences && <p className="text-gray-700">Open to Offers</p>}
+                        {item.exchangeDetails?.shippingPreference && <p className="text-gray-700">Shipping: {item.exchangeDetails.shippingPreference}</p>}
                       </div>
                     </div>
                   ) : item.type === 'rent' ? (
@@ -141,7 +144,7 @@ const ItemDetail = () => {
                       <div className="flex items-center gap-2">
                         <Calendar className="w-6 h-6 text-green-600" />
                         <h2 className="text-3xl font-bold text-black">
-                          {formatRent(item.price?.amount, item.rentDetails, item.price?.currency || 'Rs')}
+                          {formatRent(item.rentDetails, item.price?.currency || 'Rs')}
                         </h2>
                         {item.price?.negotiable && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1">Negotiable</span>}
                       </div>
@@ -178,11 +181,21 @@ const ItemDetail = () => {
                 <div className="flex"><div className="w-1/3 text-gray-500">Condition</div><div className="w-2/3 font-medium">{item.condition || 'Not specified'}</div></div>
                 {item.category?.name && <div className="flex"><div className="w-1/3 text-gray-500">Category</div><div className="w-2/3 font-medium">{item.category.name}</div></div>}
                 {item.sex && <div className="flex"><div className="w-1/3 text-gray-500">Gender</div><div className="w-2/3 font-medium">{item.sex}</div></div>}
+                {item.size && <div className="flex"><div className="w-1/3 text-gray-500">Size</div><div className="w-2/3 font-medium">{item.size}</div></div>}
+                {item.material && <div className="flex"><div className="w-1/3 text-gray-500">Material</div><div className="w-2/3 font-medium">{item.material}</div></div>}
+                {item.brand && <div className="flex"><div className="w-1/3 text-gray-500">Brand</div><div className="w-2/3 font-medium">{item.brand}</div></div>}
+                {item.color && <div className="flex"><div className="w-1/3 text-gray-500">Color</div><div className="w-2/3 font-medium">{item.color}</div></div>}
                 {item.type === 'rent' && (
                   <>
                     {item.rentDetails?.duration && <div className="flex"><div className="w-1/3 text-gray-500">Rental Duration</div><div className="w-2/3 font-medium">{item.rentDetails.duration}</div></div>}
                     {item.rentDetails?.securityDeposit && <div className="flex"><div className="w-1/3 text-gray-500">Security Deposit</div><div className="w-2/3 font-medium">Rs {item.rentDetails.securityDeposit.toLocaleString()}</div></div>}
                     {item.rentDetails?.availabilityDate && <div className="flex"><div className="w-1/3 text-gray-500">Available From</div><div className="w-2/3 font-medium">{formatDate(item.rentDetails.availabilityDate)}</div></div>}
+                    {item.rentDetails?.cleaningFee && <div className="flex"><div className="w-1/3 text-gray-500">Cleaning Fee</div><div className="w-2/3 font-medium">Rs {item.rentDetails.cleaningFee.toLocaleString()}</div></div>}
+                    {item.rentDetails?.lateFee && <div className="flex"><div className="w-1/3 text-gray-500">Late Fee</div><div className="w-2/3 font-medium">Rs {item.rentDetails.lateFee.toLocaleString()}</div></div>}
+                    {item.rentDetails?.careInstructions && <div className="flex"><div className="w-1/3 text-gray-500">Care Instructions</div><div className="w-2/3 font-medium">{item.rentDetails.careInstructions}</div></div>}
+                    {item.rentDetails?.sizeAvailability?.length > 0 && (
+                      <div className="flex"><div className="w-1/3 text-gray-500">Sizes Available</div><div className="w-2/3 font-medium">{item.rentDetails.sizeAvailability.map(s => `${s.size} (${s.quantity})`).join(', ')}</div></div>
+                    )}
                   </>
                 )}
               </div>
@@ -196,7 +209,7 @@ const ItemDetail = () => {
         </div>
 
         <div className="lg:col-span-1 overflow-y-auto">
-          <div className="bg-white border border-gray-200 shadow-sm p-5 space-y-5 sticky ">
+          <div className="bg-white border border-gray-200 shadow-sm p-5 space-y-5 sticky">
             <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
               <img src={item.seller?.avatar || '/default-avatar.png'} alt="Seller" className="w-12 h-12 rounded-full object-cover border border-gray-200" />
               <div>

@@ -104,7 +104,11 @@ export const itemAPI = {
 
   createItem: async (itemData) => {
     try {
-      const response = await api.post('/', itemData);
+      const response = await api.post('/', itemData, {
+        headers: {
+          'Content-Type': 'multipart/form-data', // Override default JSON header
+        },
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

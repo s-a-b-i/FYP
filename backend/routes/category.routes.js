@@ -1,4 +1,3 @@
-// routes/categoryRoutes.js
 import express from 'express';
 import { isAuth, isAdmin } from '../middlewares/verifyToken.js';
 import {
@@ -12,19 +11,18 @@ import {
   getPopularCategories,
   getPopularCategoriesWithItems
 } from '../controllers/category.controller.js';
-import { upload } from '../middlewares/multer.middleware.js';
-
-
+import { uploadSingleCategory } from '../middlewares/multer.middleware.js'; // Updated import
 
 const router = express.Router();
 
-// Add this to categoryRoutes.js
-router.get('/popular', getPopularCategories); // Public route that doesn't require auth
+// Public routes
+router.get('/popular', getPopularCategories);
 router.get('/popular-with-items', getPopularCategoriesWithItems);
-
-router.post('/upload', isAuth, isAdmin, upload.single('icon'), uploadCategoryIcon);
-router.get('/' , getCategories);
+router.get('/', getCategories);
 router.get('/:id', getCategoryById);
+
+// Admin routes
+router.post('/upload', isAuth, isAdmin, uploadSingleCategory, uploadCategoryIcon); // Updated middleware
 router.post('/', isAuth, isAdmin, createCategory);
 router.put('/:id', isAuth, isAdmin, updateCategory);
 router.delete('/:id', isAuth, isAdmin, deleteCategory);

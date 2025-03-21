@@ -28,7 +28,6 @@ const ItemModeration = () => {
   const [loading, setLoading] = useState(true);
   const [pendingItems, setPendingItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [moderationStats, setModerationStats] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -218,9 +217,9 @@ const ItemModeration = () => {
   // Helper function to render price or type-specific details
   const renderPriceOrDetails = (item) => {
     if (item.type === "sell" && item.price?.amount !== undefined) {
-      return `${item.price.currency} ${item.price.amount.toFixed(2)}`;
+      return `${item.price.currency || "Rs"} ${item.price.amount.toFixed(2)}`;
     } else if (item.type === "rent" && item.rentDetails) {
-      return `${item.rentDetails.duration} (Deposit: ${item.rentDetails.securityDeposit || 0} ${item.price?.currency || "Rs"})`;
+      return `${item.rentDetails.pricePerUnit || 0} ${item.price?.currency || "Rs"} / ${item.rentDetails.duration || "N/A"} (Deposit: ${item.rentDetails.securityDeposit || 0})`;
     } else if (item.type === "exchange" && item.exchangeDetails) {
       return `Exchange for: ${item.exchangeDetails.exchangeFor || "Not specified"}`;
     }
@@ -626,11 +625,34 @@ const ItemModeration = () => {
                     </div>
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                        Size
+                      </h4>
+                      <p>{selectedItem.item?.size || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                        Material
+                      </h4>
+                      <p>{selectedItem.item?.material || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                        Brand
+                      </h4>
+                      <p>{selectedItem.item?.brand || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                        Color
+                      </h4>
+                      <p>{selectedItem.item?.color || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">
                         Location
                       </h4>
                       <p>
-                        {selectedItem.item?.location?.address ||
-                          "Not specified"}
+                        {selectedItem.item?.location?.address || "Not specified"}
                       </p>
                     </div>
                     {selectedItem.item?.type === "rent" && (
@@ -645,16 +667,90 @@ const ItemModeration = () => {
                               : "Not specified"}
                           </p>
                         </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Cleaning Fee
+                          </h4>
+                          <p>
+                            {selectedItem.item.rentDetails?.cleaningFee
+                              ? `${selectedItem.item.price?.currency || "Rs"} ${selectedItem.item.rentDetails.cleaningFee}`
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Late Fee
+                          </h4>
+                          <p>
+                            {selectedItem.item.rentDetails?.lateFee
+                              ? `${selectedItem.item.price?.currency || "Rs"} ${selectedItem.item.rentDetails.lateFee}`
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Care Instructions
+                          </h4>
+                          <p>
+                            {selectedItem.item.rentDetails?.careInstructions || "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Size Availability
+                          </h4>
+                          <p>
+                            {selectedItem.item.rentDetails?.sizeAvailability?.length > 0
+                              ? selectedItem.item.rentDetails.sizeAvailability.map(s => `${s.size} (${s.quantity})`).join(', ')
+                              : "Not specified"}
+                          </p>
+                        </div>
                       </>
                     )}
                     {selectedItem.item?.type === "exchange" && (
                       <>
                         <div>
                           <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Preferred Sizes
+                          </h4>
+                          <p>
+                            {selectedItem.item.exchangeDetails?.preferredSizes?.length > 0
+                              ? selectedItem.item.exchangeDetails.preferredSizes.join(', ')
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Preferred Condition
+                          </h4>
+                          <p>
+                            {selectedItem.item.exchangeDetails?.preferredCondition || "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Preferred Brands
+                          </h4>
+                          <p>
+                            {selectedItem.item.exchangeDetails?.preferredBrands?.length > 0
+                              ? selectedItem.item.exchangeDetails.preferredBrands.join(', ')
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
                             Exchange Preferences
                           </h4>
                           <p>
                             {selectedItem.item.exchangeDetails?.exchangePreferences || "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                            Shipping Preference
+                          </h4>
+                          <p>
+                            {selectedItem.item.exchangeDetails?.shippingPreference || "Not specified"}
                           </p>
                         </div>
                       </>

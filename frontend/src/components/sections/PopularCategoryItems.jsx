@@ -12,7 +12,7 @@ const PopularCategoryItems = ({ selectedCategory, setSelectedCategory }) => {
     const fetchPopularCategories = async () => {
       try {
         setLoading(true);
-        const response = await categoryAPI.getPopularCategoriesWithItems(4, 5);
+        const response = await categoryAPI.getPopularCategoriesWithItems(4, 4);
         console.log('API Response:', response.data); // Debug the response
         setPopularCategories(response.data || []);
       } catch (err) {
