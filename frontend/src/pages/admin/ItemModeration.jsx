@@ -135,7 +135,17 @@ const ItemModeration = () => {
   const handleModerateItem = async () => {
     try {
       setLoading(true);
-      await itemAPI.moderateItem(selectedItem.item._id, moderationForm);
+      const payload = {
+        ...moderationForm,
+        visibility: {
+          featured: moderationForm.featuredItem,
+          urgent: moderationForm.urgentItem,
+        },
+      };
+      delete payload.featuredItem; // Clean up temporary fields
+      delete payload.urgentItem;
+
+      await itemAPI.moderateItem(selectedItem.item._id, payload);
 
       fetchPendingItems();
       setModalState({ isOpen: false, type: null, selectedIds: [] });
@@ -217,9 +227,13 @@ const ItemModeration = () => {
   // Helper function to render price or type-specific details
   const renderPriceOrDetails = (item) => {
     if (item.type === "sell" && item.price?.amount !== undefined) {
-      return `${item.price.currency || "Rs"} ${item.price.amount.toFixed(2)}`;
+      return `${item.price.currency || "Rs"} ${item.price.amount.toLocaleString()}${
+        item.price.negotiable ? " (Negotiable)" : ""
+      }`;
     } else if (item.type === "rent" && item.rentDetails) {
-      return `${item.rentDetails.pricePerUnit || 0} ${item.price?.currency || "Rs"} / ${item.rentDetails.duration || "N/A"} (Deposit: ${item.rentDetails.securityDeposit || 0})`;
+      return `${item.rentDetails.pricePerUnit || 0} ${item.price?.currency || "Rs"} / ${
+        item.rentDetails.duration || "N/A"
+      } (Deposit: ${item.rentDetails.securityDeposit || 0})`;
     } else if (item.type === "exchange" && item.exchangeDetails) {
       return `Exchange for: ${item.exchangeDetails.exchangeFor || "Not specified"}`;
     }
@@ -227,10 +241,10 @@ const ItemModeration = () => {
   };
 
   return (
-    <div className="container px-4 py-8">
+    <div className="container px-4 py-8 max-w-7xl mx-auto">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <H2>Item Moderation</H2>
+        <H2 className="text-2xl font-bold">Item Moderation</H2>
 
         <div className="flex gap-4 mt-4 md:mt-0">
           <Button
@@ -330,6 +344,7 @@ const ItemModeration = () => {
                     <th className="p-3 text-left">Title</th>
                     <th className="p-3 text-left">Category</th>
                     <th className="p-3 text-left">Details</th>
+                    <th className="p-3 text-left">Location</th>
                     <th className="p-3 text-left">Seller</th>
                     <th className="p-3 text-left">Date</th>
                     <th className="p-3 text-left">Actions</th>
@@ -337,7 +352,6 @@ const ItemModeration = () => {
                 </thead>
                 <tbody>
                   {loading ? (
-                    // Skeleton Loading for Table Rows
                     [...Array(5)].map((_, index) => (
                       <tr
                         key={index}
@@ -364,6 +378,9 @@ const ItemModeration = () => {
                           <Skeleton className="h-4 w-20" />
                         </td>
                         <td className="p-3">
+                          <Skeleton className="h-4 w-20" />
+                        </td>
+                        <td className="p-3">
                           <Skeleton className="h-4 w-24" />
                         </td>
                         <td className="p-3">
@@ -373,7 +390,7 @@ const ItemModeration = () => {
                     ))
                   ) : pendingItems.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="p-4 text-center">
+                      <td colSpan="9" className="p-4 text-center">
                         No items pending moderation.
                       </td>
                     </tr>
@@ -413,11 +430,18 @@ const ItemModeration = () => {
                             </div>
                           )}
                         </td>
-                        <td className="p-3">{item.title}</td>
-                        <td className="p-3">
-                          {item.category?.name || "Unknown"}
+                        <td className="p-3 truncate max-w-[200px]">
+                          {item.title}
                         </td>
-                        <td className="p-3">{renderPriceOrDetails(item)}</td>
+                        <td className="p-3">{item.category?.name || "Unknown"}</td>
+                        <td className="p-3 truncate max-w-[150px]">
+                          {renderPriceOrDetails(item)}
+                        </td>
+                        <td className="p-3 truncate max-w-[150px]">
+                          {item.location?.city && item.location?.neighborhood
+                            ? `${item.location.neighborhood}, ${item.location.city}`
+                            : item.location?.address || "Not specified"}
+                        </td>
                         <td className="p-3">{item.user?.name || "Unknown"}</td>
                         <td className="p-3">
                           {new Date(item.createdAt).toLocaleDateString()}
@@ -506,7 +530,6 @@ const ItemModeration = () => {
             </Button>
 
             {loading ? (
-              // Skeleton Loading for Detail View
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                   <Skeleton className="h-8 w-64 mb-4" />
@@ -551,7 +574,7 @@ const ItemModeration = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Item Details */}
                 <div className="lg:col-span-2">
-                  <H3 className="mb-4">
+                  <H3 className="mb-4 text-xl font-semibold">
                     {selectedItem.item?.title || "No Title"}
                   </H3>
 
@@ -571,7 +594,7 @@ const ItemModeration = () => {
                           />
                         ))
                       ) : (
-                        <div className="w-full h-32 bg-gray-200 rounded flex items-center justify-center">
+                        <div className="w-full h-32 bg-gray-200 rounded flex items-center justify-center col-span-full">
                           <span className="text-xs text-gray-500">
                             No images available
                           </span>
@@ -580,7 +603,7 @@ const ItemModeration = () => {
                     </div>
                   </div>
 
-                  {/* Item Details */}
+                  {/* Item General Details */}
                   <div className="grid grid-cols-2 gap-6 mb-6">
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">
@@ -593,11 +616,6 @@ const ItemModeration = () => {
                         Details
                       </h4>
                       <p>{renderPriceOrDetails(selectedItem.item)}</p>
-                      {selectedItem.item?.type === "sell" && selectedItem.item?.price?.negotiable && (
-                        <span className="text-xs text-muted-foreground">
-                          (Negotiable)
-                        </span>
-                      )}
                     </div>
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">
@@ -652,15 +670,20 @@ const ItemModeration = () => {
                         Location
                       </h4>
                       <p>
-                        {selectedItem.item?.location?.address || "Not specified"}
+                        {selectedItem.item?.location?.city && selectedItem.item?.location?.neighborhood
+                          ? `${selectedItem.item.location.neighborhood}, ${selectedItem.item.location.city}`
+                          : selectedItem.item?.location?.address || "Not specified"}
                       </p>
                     </div>
-                    {selectedItem.item?.type === "rent" && (
-                      <>
+                  </div>
+
+                  {/* Type-Specific Details */}
+                  {selectedItem.item?.type === "rent" && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-2">Rent Details</h4>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Availability Date
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Availability Date</h5>
                           <p>
                             {selectedItem.item.rentDetails?.availabilityDate
                               ? new Date(selectedItem.item.rentDetails.availabilityDate).toLocaleDateString()
@@ -668,9 +691,7 @@ const ItemModeration = () => {
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Cleaning Fee
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Cleaning Fee</h5>
                           <p>
                             {selectedItem.item.rentDetails?.cleaningFee
                               ? `${selectedItem.item.price?.currency || "Rs"} ${selectedItem.item.rentDetails.cleaningFee}`
@@ -678,9 +699,7 @@ const ItemModeration = () => {
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Late Fee
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Late Fee</h5>
                           <p>
                             {selectedItem.item.rentDetails?.lateFee
                               ? `${selectedItem.item.price?.currency || "Rs"} ${selectedItem.item.rentDetails.lateFee}`
@@ -688,31 +707,29 @@ const ItemModeration = () => {
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Care Instructions
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Care Instructions</h5>
                           <p>
                             {selectedItem.item.rentDetails?.careInstructions || "Not specified"}
                           </p>
                         </div>
-                        <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Size Availability
-                          </h4>
+                        <div className="col-span-2">
+                          <h5 className="text-sm text-muted-foreground">Size Availability</h5>
                           <p>
                             {selectedItem.item.rentDetails?.sizeAvailability?.length > 0
                               ? selectedItem.item.rentDetails.sizeAvailability.map(s => `${s.size} (${s.quantity})`).join(', ')
                               : "Not specified"}
                           </p>
                         </div>
-                      </>
-                    )}
-                    {selectedItem.item?.type === "exchange" && (
-                      <>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedItem.item?.type === "exchange" && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-2">Exchange Details</h4>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Preferred Sizes
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Preferred Sizes</h5>
                           <p>
                             {selectedItem.item.exchangeDetails?.preferredSizes?.length > 0
                               ? selectedItem.item.exchangeDetails.preferredSizes.join(', ')
@@ -720,17 +737,13 @@ const ItemModeration = () => {
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Preferred Condition
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Preferred Condition</h5>
                           <p>
                             {selectedItem.item.exchangeDetails?.preferredCondition || "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Preferred Brands
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Preferred Brands</h5>
                           <p>
                             {selectedItem.item.exchangeDetails?.preferredBrands?.length > 0
                               ? selectedItem.item.exchangeDetails.preferredBrands.join(', ')
@@ -738,24 +751,41 @@ const ItemModeration = () => {
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Exchange Preferences
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Exchange Preferences</h5>
                           <p>
                             {selectedItem.item.exchangeDetails?.exchangePreferences || "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                            Shipping Preference
-                          </h4>
+                          <h5 className="text-sm text-muted-foreground">Shipping Preference</h5>
                           <p>
                             {selectedItem.item.exchangeDetails?.shippingPreference || "Not specified"}
                           </p>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Metadata */}
+                  {selectedItem.item?.metadata && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-2">Metadata</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="text-sm text-muted-foreground">Sustainability Score</h5>
+                          <p>{selectedItem.item.metadata.sustainabilityScore || "N/A"}</p>
+                        </div>
+                        <div>
+                          <h5 className="text-sm text-muted-foreground">Custom Tags</h5>
+                          <p>
+                            {selectedItem.item.metadata.tags?.length > 0
+                              ? selectedItem.item.metadata.tags.join(', ')
+                              : "None"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Stats */}
                   <div className="mb-6">
@@ -776,9 +806,7 @@ const ItemModeration = () => {
                           theme === "dark" ? "gray-800" : "gray-100"
                         } text-center`}
                       >
-                        <p className="text-xs text-muted-foreground">
-                          Phone Calls
-                        </p>
+                        <p className="text-xs text-muted-foreground">Phone Calls</p>
                         <p className="font-medium">
                           {selectedItem.item?.stats?.phones || 0}
                         </p>
@@ -805,7 +833,7 @@ const ItemModeration = () => {
                       }`}
                     >
                       <p className="whitespace-pre-line">
-                        {selectedItem.item?.description}
+                        {selectedItem.item?.description || "No description provided"}
                       </p>
                     </div>
                   </div>
@@ -815,67 +843,64 @@ const ItemModeration = () => {
                     <h4 className="font-medium mb-2">Visibility Settings</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          Start Date
-                        </p>
+                        <p className="text-sm text-muted-foreground">Start Date</p>
                         <p>
                           {selectedItem.item?.visibility?.startDate
-                            ? new Date(
-                                selectedItem.item.visibility.startDate
-                              ).toLocaleDateString()
+                            ? new Date(selectedItem.item.visibility.startDate).toLocaleDateString()
                             : "Not set"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          End Date
-                        </p>
+                        <p className="text-sm text-muted-foreground">End Date</p>
                         <p>
                           {selectedItem.item?.visibility?.endDate
-                            ? new Date(
-                                selectedItem.item.visibility.endDate
-                              ).toLocaleDateString()
+                            ? new Date(selectedItem.item.visibility.endDate).toLocaleDateString()
                             : "Not set"}
                         </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Featured</p>
+                        <p>{selectedItem.item?.visibility?.featured ? "Yes" : "No"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Urgent</p>
+                        <p>{selectedItem.item?.visibility?.urgent ? "Yes" : "No"}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Similar Items */}
-                  {selectedItem.similarItems &&
-                    selectedItem.similarItems.length > 0 && (
-                      <div className="mb-6">
-                        <H4 className="mb-3">Similar Items</H4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                          {selectedItem.similarItems.map((item) => (
-                            <div
-                              key={item._id}
-                              className={`p-2 rounded border border-${
-                                theme === "dark"
-                                  ? "admin.borderDark"
-                                  : "admin.border"
-                              } flex items-center gap-2`}
-                            >
-                              {item.images && item.images.length > 0 ? (
-                                <img
-                                  src={item.images[0].url}
-                                  alt={item.title}
-                                  className="w-10 h-10 object-cover rounded"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 bg-gray-200 rounded"></div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="truncate text-sm">{item.title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {renderPriceOrDetails(item)}
-                                </p>
-                              </div>
+                  {selectedItem.similarItems && selectedItem.similarItems.length > 0 && (
+                    <div className="mb-6">
+                      <H4 className="mb-3">Similar Items</H4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        {selectedItem.similarItems.map((item) => (
+                          <div
+                            key={item._id}
+                            className={`p-2 rounded border border-${
+                              theme === "dark" ? "admin.borderDark" : "admin.border"
+                            } flex items-center gap-2`}
+                          >
+                            {item.images && item.images.length > 0 ? (
+                              <img
+                                src={item.images[0].url}
+                                alt={item.title}
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-gray-200 rounded"></div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate text-sm">{item.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {renderPriceOrDetails(item)}
+                              </p>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Seller Info & Moderation Controls */}
@@ -905,10 +930,10 @@ const ItemModeration = () => {
                       )}
                       <div>
                         <p className="font-medium">
-                          {selectedItem.seller?.name}
+                          {selectedItem.seller?.name || "Unknown"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {selectedItem.seller?.email}
+                          {selectedItem.seller?.email || "No email provided"}
                         </p>
                       </div>
                     </div>
@@ -936,64 +961,60 @@ const ItemModeration = () => {
                       <div>
                         <p className="text-muted-foreground">About</p>
                         <p>
-                          {selectedItem.seller?.about ||
-                            "No information provided"}
+                          {selectedItem.seller?.about || "No information provided"}
                         </p>
                       </div>
                     </div>
                   </div>
 
                   {/* User History */}
-                  {selectedItem.userHistory &&
-                    selectedItem.userHistory.length > 0 && (
-                      <div
-                        className={`p-4 rounded-lg mb-6 bg-${
-                          theme === "dark" ? "admin.cardDark" : "admin.card"
-                        } border border-${
-                          theme === "dark" ? "admin.borderDark" : "admin.border"
-                        }`}
-                      >
-                        <h4 className="font-medium mb-3">User History</h4>
-                        <div className="space-y-2">
-                          {selectedItem.userHistory.map((item) => (
-                            <div
-                              key={item._id}
-                              className={`p-2 rounded border border-${
-                                theme === "dark"
-                                  ? "admin.borderDark"
-                                  : "admin.border"
-                              }`}
-                            >
-                              <p className="text-sm truncate">{item.title}</p>
-                              <div className="flex justify-between text-xs">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full ${
-                                    item.status === "active"
-                                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                      : item.status === "moderated"
-                                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                                  }`}
-                                >
-                                  {item.status === "active"
-                                    ? "Approved"
+                  {selectedItem.userHistory && selectedItem.userHistory.length > 0 && (
+                    <div
+                      className={`p-4 rounded-lg mb-6 bg-${
+                        theme === "dark" ? "admin.cardDark" : "admin.card"
+                      } border border-${
+                        theme === "dark" ? "admin.borderDark" : "admin.border"
+                      }`}
+                    >
+                      <h4 className="font-medium mb-3">User History</h4>
+                      <div className="space-y-2">
+                        {selectedItem.userHistory.map((item) => (
+                          <div
+                            key={item._id}
+                            className={`p-2 rounded border border-${
+                              theme === "dark" ? "admin.borderDark" : "admin.border"
+                            }`}
+                          >
+                            <p className="text-sm truncate">{item.title}</p>
+                            <div className="flex justify-between text-xs">
+                              <span
+                                className={`px-2 py-0.5 rounded-full ${
+                                  item.status === "active"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                                     : item.status === "moderated"
-                                    ? "Rejected"
-                                    : item.status}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {new Date(item.createdAt).toLocaleDateString()}
-                                </span>
-                              </div>
+                                    ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                    : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                                }`}
+                              >
+                                {item.status === "active"
+                                  ? "Approved"
+                                  : item.status === "moderated"
+                                  ? "Rejected"
+                                  : item.status}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {new Date(item.createdAt).toLocaleDateString()}
+                              </span>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
 
                   {/* Moderation Actions */}
                   <div
-                    className={`p-4 rounded-lg mb-6 bg-${
+                    className={`p-4 rounded-lg bg-${
                       theme === "dark" ? "admin.cardDark" : "admin.card"
                     } border border-${
                       theme === "dark" ? "admin.borderDark" : "admin.border"
@@ -1004,9 +1025,7 @@ const ItemModeration = () => {
                       <Button
                         variant="primary"
                         fullWidth
-                        onClick={() =>
-                          openModal("approve", [selectedItem.item?._id])
-                        }
+                        onClick={() => openModal("approve", [selectedItem.item?._id])}
                       >
                         <FiCheck className="mr-2" />
                         Approve Item
@@ -1014,9 +1033,7 @@ const ItemModeration = () => {
                       <Button
                         variant="destructive"
                         fullWidth
-                        onClick={() =>
-                          openModal("reject", [selectedItem.item?._id])
-                        }
+                        onClick={() => openModal("reject", [selectedItem.item?._id])}
                       >
                         <FiX className="mr-2" />
                         Reject Item

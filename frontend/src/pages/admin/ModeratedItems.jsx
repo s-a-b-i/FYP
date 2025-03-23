@@ -131,8 +131,10 @@ const ModeratedItems = () => {
           rejectionReason: revisionForm.rejectionReason,
         }),
         ...(revisionForm.status === "active" && {
-          featuredItem: revisionForm.featuredItem,
-          urgentItem: revisionForm.urgentItem,
+          visibility: {
+            featured: revisionForm.featuredItem,
+            urgent: revisionForm.urgentItem,
+          },
         }),
       };
       await itemAPI.reviseModeration(modalState.itemId, payload);
@@ -170,7 +172,15 @@ const ModeratedItems = () => {
   // Refetch when pagination or filters change
   useEffect(() => {
     fetchModeratedItems();
-  }, [pagination.page, pagination.limit, filter.status, filter.moderator, filter.startDate, filter.endDate, filter.search]);
+  }, [
+    pagination.page,
+    pagination.limit,
+    filter.status,
+    filter.moderator,
+    filter.startDate,
+    filter.endDate,
+    filter.search,
+  ]);
 
   // Handle filter changes
   const handleFilterChange = (name, value) => {
@@ -240,20 +250,30 @@ const ModeratedItems = () => {
   // Helper function to render price or type-specific details
   const renderPriceOrDetails = (item) => {
     if (item.type === "sell" && item.price?.amount !== undefined) {
-      return `${item.price.currency || "Rs"} ${item.price.amount.toFixed(2)}`;
+      return `${
+        item.price.currency || "Rs"
+      } ${item.price.amount.toLocaleString()}${
+        item.price.negotiable ? " (Negotiable)" : ""
+      }`;
     } else if (item.type === "rent" && item.rentDetails) {
-      return `${item.rentDetails.pricePerUnit || 0} ${item.price?.currency || "Rs"} / ${item.rentDetails.duration || "N/A"} (Deposit: ${item.rentDetails.securityDeposit || 0})`;
+      return `${item.rentDetails.pricePerUnit || 0} ${
+        item.price?.currency || "Rs"
+      } / ${item.rentDetails.duration || "N/A"} (Deposit: ${
+        item.rentDetails.securityDeposit || 0
+      })`;
     } else if (item.type === "exchange" && item.exchangeDetails) {
-      return `Exchange for: ${item.exchangeDetails.exchangeFor || "Not specified"}`;
+      return `Exchange for: ${
+        item.exchangeDetails.exchangeFor || "Not specified"
+      }`;
     }
     return "N/A";
   };
 
   return (
-    <div className="container px-4 py-8">
+    <div className="container px-4 py-8 max-w-7xl mx-auto">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <H2>Moderated Items</H2>
+        <H2 className="text-2xl font-bold">Moderated Items</H2>
       </div>
 
       {/* Main Content Area */}
@@ -358,6 +378,7 @@ const ModeratedItems = () => {
                     <th className="p-3 text-left">Title</th>
                     <th className="p-3 text-left">Category</th>
                     <th className="p-3 text-left">Details</th>
+                    <th className="p-3 text-left">Location</th>
                     <th className="p-3 text-left">Status</th>
                     <th className="p-3 text-left">Seller</th>
                     <th className="p-3 text-left">Moderated By</th>
@@ -387,6 +408,9 @@ const ModeratedItems = () => {
                           <Skeleton className="h-4 w-20" />
                         </td>
                         <td className="p-3">
+                          <Skeleton className="h-4 w-20" />
+                        </td>
+                        <td className="p-3">
                           <Skeleton className="h-6 w-20" />
                         </td>
                         <td className="p-3">
@@ -405,7 +429,7 @@ const ModeratedItems = () => {
                     ))
                   ) : moderatedItems.length === 0 ? (
                     <tr>
-                      <td colSpan="9" className="p-4 text-center">
+                      <td colSpan="10" className="p-4 text-center">
                         No moderated items found.
                       </td>
                     </tr>
@@ -437,11 +461,20 @@ const ModeratedItems = () => {
                             </div>
                           )}
                         </td>
-                        <td className="p-3">{item.title}</td>
+                        <td className="p-3 truncate max-w-[200px]">
+                          {item.title}
+                        </td>
                         <td className="p-3">
                           {item.category?.name || "Unknown"}
                         </td>
-                        <td className="p-3">{renderPriceOrDetails(item)}</td>
+                        <td className="p-3 truncate max-w-[150px]">
+                          {renderPriceOrDetails(item)}
+                        </td>
+                        <td className="p-3 truncate max-w-[150px]">
+                          {item.location?.city && item.location?.neighborhood
+                            ? `${item.location.neighborhood}, ${item.location.city}`
+                            : item.location?.address || "Not specified"}
+                        </td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeClass(
@@ -559,7 +592,6 @@ const ModeratedItems = () => {
             </Button>
 
             {loading ? (
-              // Skeleton Loading for Detail View
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                   <Skeleton className="h-8 w-64 mb-4" />
@@ -591,7 +623,7 @@ const ModeratedItems = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Item Details */}
                 <div className="lg:col-span-2">
-                  <H3 className="mb-4">
+                  <H3 className="mb-4 text-xl font-semibold">
                     {selectedItem.item?.title || "No Title"}
                   </H3>
 
@@ -611,7 +643,7 @@ const ModeratedItems = () => {
                           />
                         ))
                       ) : (
-                        <div className="w-full h-32 bg-gray-200 rounded flex items-center justify-center">
+                        <div className="w-full h-32 bg-gray-200 rounded flex items-center justify-center col-span-full">
                           <span className="text-xs text-gray-500">
                             No images available
                           </span>
@@ -620,7 +652,7 @@ const ModeratedItems = () => {
                     </div>
                   </div>
 
-                  {/* Item Details */}
+                  {/* Item General Details */}
                   <div className="grid grid-cols-2 gap-6 mb-6">
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">
@@ -633,11 +665,6 @@ const ModeratedItems = () => {
                         Details
                       </h4>
                       <p>{renderPriceOrDetails(selectedItem.item)}</p>
-                      {selectedItem.item?.type === "sell" && selectedItem.item?.price?.negotiable && (
-                        <span className="text-xs text-muted-foreground">
-                          (Negotiable)
-                        </span>
-                      )}
                     </div>
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">
@@ -692,110 +719,170 @@ const ModeratedItems = () => {
                         Location
                       </h4>
                       <p>
-                        {selectedItem.item?.location?.address || "Not specified"}
+                        {selectedItem.item?.location?.city &&
+                        selectedItem.item?.location?.neighborhood
+                          ? `${selectedItem.item.location.neighborhood}, ${selectedItem.item.location.city}`
+                          : selectedItem.item?.location?.address ||
+                            "Not specified"}
                       </p>
                     </div>
-                    {selectedItem.item?.type === "rent" && (
-                      <>
+                  </div>
+
+                  {/* Type-Specific Details */}
+                  {selectedItem.item?.type === "rent" && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-2">Rent Details</h4>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Availability Date
-                          </h4>
+                          </h5>
                           <p>
                             {selectedItem.item.rentDetails?.availabilityDate
-                              ? new Date(selectedItem.item.rentDetails.availabilityDate).toLocaleDateString()
+                              ? new Date(
+                                  selectedItem.item.rentDetails.availabilityDate
+                                ).toLocaleDateString()
                               : "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Cleaning Fee
-                          </h4>
+                          </h5>
                           <p>
                             {selectedItem.item.rentDetails?.cleaningFee
-                              ? `${selectedItem.item.price?.currency || "Rs"} ${selectedItem.item.rentDetails.cleaningFee}`
+                              ? `${selectedItem.item.price?.currency || "Rs"} ${
+                                  selectedItem.item.rentDetails.cleaningFee
+                                }`
                               : "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Late Fee
-                          </h4>
+                          </h5>
                           <p>
                             {selectedItem.item.rentDetails?.lateFee
-                              ? `${selectedItem.item.price?.currency || "Rs"} ${selectedItem.item.rentDetails.lateFee}`
+                              ? `${selectedItem.item.price?.currency || "Rs"} ${
+                                  selectedItem.item.rentDetails.lateFee
+                                }`
                               : "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Care Instructions
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.rentDetails?.careInstructions || "Not specified"}
+                            {selectedItem.item.rentDetails?.careInstructions ||
+                              "Not specified"}
                           </p>
                         </div>
-                        <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                        <div className="col-span-2">
+                          <h5 className="text-sm text-muted-foreground">
                             Size Availability
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.rentDetails?.sizeAvailability?.length > 0
-                              ? selectedItem.item.rentDetails.sizeAvailability.map(s => `${s.size} (${s.quantity})`).join(', ')
+                            {selectedItem.item.rentDetails?.sizeAvailability
+                              ?.length > 0
+                              ? selectedItem.item.rentDetails.sizeAvailability
+                                  .map((s) => `${s.size} (${s.quantity})`)
+                                  .join(", ")
                               : "Not specified"}
                           </p>
                         </div>
-                      </>
-                    )}
-                    {selectedItem.item?.type === "exchange" && (
-                      <>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedItem.item?.type === "exchange" && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-2">Exchange Details</h4>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Preferred Sizes
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.exchangeDetails?.preferredSizes?.length > 0
-                              ? selectedItem.item.exchangeDetails.preferredSizes.join(', ')
+                            {selectedItem.item.exchangeDetails?.preferredSizes
+                              ?.length > 0
+                              ? selectedItem.item.exchangeDetails.preferredSizes.join(
+                                  ", "
+                                )
                               : "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Preferred Condition
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.exchangeDetails?.preferredCondition || "Not specified"}
+                            {selectedItem.item.exchangeDetails
+                              ?.preferredCondition || "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Preferred Brands
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.exchangeDetails?.preferredBrands?.length > 0
-                              ? selectedItem.item.exchangeDetails.preferredBrands.join(', ')
+                            {selectedItem.item.exchangeDetails?.preferredBrands
+                              ?.length > 0
+                              ? selectedItem.item.exchangeDetails.preferredBrands.join(
+                                  ", "
+                                )
                               : "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Exchange Preferences
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.exchangeDetails?.exchangePreferences || "Not specified"}
+                            {selectedItem.item.exchangeDetails
+                              ?.exchangePreferences || "Not specified"}
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          <h5 className="text-sm text-muted-foreground">
                             Shipping Preference
-                          </h4>
+                          </h5>
                           <p>
-                            {selectedItem.item.exchangeDetails?.shippingPreference || "Not specified"}
+                            {selectedItem.item.exchangeDetails
+                              ?.shippingPreference || "Not specified"}
                           </p>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Metadata */}
+                  {selectedItem.item?.metadata && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-2">Metadata</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="text-sm text-muted-foreground">
+                            Sustainability Score
+                          </h5>
+                          <p>
+                            {selectedItem.item.metadata.sustainabilityScore ||
+                              "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <h5 className="text-sm text-muted-foreground">
+                            Custom Tags
+                          </h5>
+                          <p>
+                            {selectedItem.item.metadata.tags?.length > 0
+                              ? selectedItem.item.metadata.tags.join(", ")
+                              : "None"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Item Statistics */}
                   <div className="mb-6">
@@ -845,8 +932,56 @@ const ModeratedItems = () => {
                       }`}
                     >
                       <p className="whitespace-pre-line">
-                        {selectedItem.item?.description}
+                        {selectedItem.item?.description ||
+                          "No description provided"}
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Visibility Settings */}
+                  <div className="mb-6">
+                    <h4 className="font-medium mb-2">Visibility Settings</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Start Date
+                        </p>
+                        <p>
+                          {selectedItem.item?.visibility?.startDate
+                            ? new Date(
+                                selectedItem.item.visibility.startDate
+                              ).toLocaleDateString()
+                            : "Not set"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          End Date
+                        </p>
+                        <p>
+                          {selectedItem.item?.visibility?.endDate
+                            ? new Date(
+                                selectedItem.item.visibility.endDate
+                              ).toLocaleDateString()
+                            : "Not set"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Featured
+                        </p>
+                        <p>
+                          {selectedItem.item?.visibility?.featured
+                            ? "Yes"
+                            : "No"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Urgent</p>
+                        <p>
+                          {selectedItem.item?.visibility?.urgent ? "Yes" : "No"}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -1004,7 +1139,13 @@ const ModeratedItems = () => {
                               <div className="flex-1 min-w-0">
                                 <p className="truncate text-sm">{item.title}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {renderPriceOrDetails(item)}
+                                  {item.price?.amount
+                                    ? `${
+                                        item.price.currency || "Rs"
+                                      } ${item.price.amount.toLocaleString()}`
+                                    : item.type
+                                    ? renderPriceOrDetails(item)
+                                    : "Details N/A"}
                                 </p>
                               </div>
                             </div>
@@ -1041,10 +1182,10 @@ const ModeratedItems = () => {
                       )}
                       <div>
                         <p className="font-medium">
-                          {selectedItem.seller?.name}
+                          {selectedItem.seller?.name || "Unknown"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {selectedItem.seller?.email}
+                          {selectedItem.seller?.email || "No email provided"}
                         </p>
                       </div>
                     </div>
@@ -1131,7 +1272,7 @@ const ModeratedItems = () => {
 
                   {/* Moderation Controls */}
                   <div
-                    className={`p-4 rounded-lg mb-6 bg-${
+                    className={`p-4 rounded-lg bg-${
                       theme === "dark" ? "admin.cardDark" : "admin.card"
                     } border border-${
                       theme === "dark" ? "admin.borderDark" : "admin.border"
@@ -1200,7 +1341,7 @@ const ModeratedItems = () => {
                       Moderation Notes:
                     </label>
                     <textarea
-                      className="w-full p-2 mt-1 border border-inputBook rounded-md"
+                      className="w-full p-2 mt-1 border border-input rounded-md"
                       value={revisionForm.moderationNotes}
                       onChange={(e) =>
                         setRevisionForm({
