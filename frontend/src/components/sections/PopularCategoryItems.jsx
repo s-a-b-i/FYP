@@ -26,8 +26,8 @@ const PopularCategoryItems = ({ selectedCategory, setSelectedCategory }) => {
     fetchPopularCategories();
   }, []);
 
-  if (loading) return <div>Loading popular categories...</div>;
-  if (error) return <div>{error}</div>;
+  if (loading) return <div className="px-4 sm:px-6 lg:px-8 py-12 text-gray-600">Loading popular categories...</div>;
+  if (error) return <div className="px-4 sm:px-6 lg:px-8 py-12 text-red-600">{error}</div>;
   if (popularCategories.length === 0) return null;
 
   const filteredCategories = selectedCategory === 'all' 
@@ -35,23 +35,27 @@ const PopularCategoryItems = ({ selectedCategory, setSelectedCategory }) => {
     : popularCategories.filter(cat => cat.name === selectedCategory);
 
   return (
-    <section className="container py-8 sm:py-12 lg:py-16">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {filteredCategories.map((category) => (
         <div key={category._id} className="mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <H2>{category.name}</H2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <H2 className="text-2xl font-bold text-gray-900">{category.name}</H2>
             <button 
               onClick={() => setSelectedCategory(category.name)}
-              className="text-primary-main hover:underline"
+              className="text-primary-main hover:underline text-sm font-medium"
             >
               View all
             </button>
           </div>
           
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 sm:gap-6">
-            {category.items?.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+            {category.items?.length > 0 ? (
+              category.items.map((item) => (
+                <ItemCard key={item._id || item.id} item={item} />
+              ))
+            ) : (
+              <p className="text-gray-500 col-span-full">No items available in this category</p>
+            )}
           </div>
         </div>
       ))}

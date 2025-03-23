@@ -10,10 +10,10 @@ const RelatedItems = ({ currentItem }) => {
 
   useEffect(() => {
     const fetchRelatedItems = async () => {
-      if (!currentItem?.id) return;
+      if (!currentItem?._id) return; // Use _id to match MongoDB convention
       try {
         setLoading(true);
-        const response = await itemAPI.getRelatedItems(currentItem.id);
+        const response = await itemAPI.getRelatedItems(currentItem._id);
         setRelatedItems(response.data?.items || response.data || []);
       } catch (err) {
         console.error('Error fetching related items:', err);
@@ -23,34 +23,34 @@ const RelatedItems = ({ currentItem }) => {
       }
     };
     fetchRelatedItems();
-  }, [currentItem?.id]);
+  }, [currentItem?._id]);
 
-  if (loading) return <div className="py-8"><div className="animate-pulse text-gray-600">Loading related items...</div></div>;
-  if (error) return <div className="py-8 text-red-500 text-center">{error}</div>;
-  if (!relatedItems.length) return <div className="py-8 text-gray-600 text-center">No related items found</div>;
+  if (loading) return <div className="px-4 sm:px-6 lg:px-8 py-12 text-gray-600"><div className="animate-pulse">Loading related items...</div></div>;
+  if (error) return <div className="px-4 sm:px-6 lg:px-8 py-12 text-red-500">{error}</div>;
+  if (!relatedItems.length) return <div className="px-4 sm:px-6 lg:px-8 py-12 text-gray-600">No related items found</div>;
 
   return (
-    <section className="py-8">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-6">
-        <H2>Related Items</H2>
+        <H2 className="text-2xl font-bold text-gray-900">Related Items</H2>
         <p className="text-sm text-gray-600 mt-1">Similar items you might be interested in</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
         {relatedItems.map((item) => (
           <ItemCard
-            key={item.id || item._id}
+            key={item._id || item.id}
             item={{
-              id: item.id || item._id,
+              id: item._id || item.id,
               title: item.title,
-              image: item.images?.[0]?.url || '/placeholder-image.jpg',
+              images: item.images || [], // Pass full images array
               type: item.type,
-              price: typeof item.price === 'object' ? item.price?.amount : item.price, // Extract amount if object
-              currency: typeof item.price === 'object' ? item.price?.currency : 'PKR', // Extract currency if object
-              location: item.location?.address || 'Unknown',
+              price: item.price, // Pass full price object
+              currency: item.price?.currency || 'PKR',
+              location: item.location || {}, // Pass full location object
               timeAgo: formatTimeAgo(item.createdAt),
-              visibility: item.visibility,
-              exchangeDetails: item.exchangeDetails,
-              rentDetails: item.rentDetails, // Pass full rentDetails object
+              visibility: item.visibility || {},
+              exchangeDetails: item.exchangeDetails || {},
+              rentDetails: item.rentDetails || {},
             }}
           />
         ))}

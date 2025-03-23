@@ -52,13 +52,30 @@ const ItemDetail = () => {
     setIsFavorite(!isFavorite);
   };
 
-  if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><div className="animate-pulse text-lg text-gray-600">Loading item details...</div></div>;
-  if (error) return <div className="min-h-[60vh] flex items-center justify-center"><div className="text-red-500 text-center"><div className="text-lg font-medium mb-2">{error}</div><button className="text-blue-600 hover:underline" onClick={() => window.location.reload()}>Try again</button></div></div>;
-  if (!item) return <div className="min-h-[60vh] flex items-center justify-center"><div className="text-gray-600 text-center"><div className="text-lg font-medium mb-2">Item not found</div><button className="text-blue-600 hover:underline" onClick={() => window.history.back()}>Go back</button></div></div>;
+  if (loading) return <div className="min-h-[60vh] flex items-center justify-start px-4 sm:px-6 lg:px-8"><div className="animate-pulse text-lg text-gray-600">Loading item details...</div></div>;
+  if (error) return (
+    <div className="min-h-[60vh] flex items-center justify-start px-4 sm:px-6 lg:px-8">
+      <div className="text-red-500">
+        <div className="text-lg font-medium mb-2">{error}</div>
+        <button className="text-blue-600 hover:underline" onClick={() => window.location.reload()}>Try again</button>
+      </div>
+    </div>
+  );
+  if (!item) return (
+    <div className="min-h-[60vh] flex items-center justify-start px-4 sm:px-6 lg:px-8">
+      <div className="text-gray-600">
+        <div className="text-lg font-medium mb-2">Item not found</div>
+        <button className="text-blue-600 hover:underline" onClick={() => window.history.back()}>Go back</button>
+      </div>
+    </div>
+  );
 
   const phoneNumber = item.contactInfo?.phoneNumber || item.seller?.phone || 'Not available';
   const images = item.images || [];
   const currentImage = images.length ? images[currentImageIndex]?.url : null;
+  const locationText = item.location?.city && item.location?.neighborhood 
+    ? `${item.location.neighborhood}, ${item.location.city}` 
+    : 'Location not specified';
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Not specified';
@@ -73,35 +90,49 @@ const ItemDetail = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Images and Details */}
+        <div className="lg:col-span-2 space-y-8">
           {/* Image Gallery Section */}
-          <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden">
             <div className="relative">
-              <div className="aspect-w-16 aspect-h-10 bg-white">
+              <div className="aspect-w-16 aspect-h-9 bg-white">
                 {currentImage ? (
-                  <img src={currentImage} alt={item.title} className="w-full h-[400px] object-contain" />
+                  <img src={currentImage} alt={item.title} className="w-full h-[450px] object-contain" />
                 ) : (
-                  <div className="w-full h-[400px] flex items-center justify-center text-gray-400">No image available</div>
+                  <div className="w-full h-[450px] flex items-center justify-center text-gray-400">No image available</div>
                 )}
               </div>
               {images.length > 1 && (
                 <>
-                  <button onClick={handlePrevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 shadow-md" aria-label="Previous image"><ChevronLeft size={20} /></button>
-                  <button onClick={handleNextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 shadow-md" aria-label="Next image"><ChevronRight size={20} /></button>
-                  <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+                  <button onClick={handlePrevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2.5 rounded-full shadow-md transition-colors" aria-label="Previous image">
+                    <ChevronLeft size={24} />
+                  </button>
+                  <button onClick={handleNextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2.5 rounded-full shadow-md transition-colors" aria-label="Next image">
+                    <ChevronRight size={24} />
+                  </button>
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
                     {images.map((_, index) => (
-                      <button key={index} onClick={() => setCurrentImageIndex(index)} className={`w-2 h-2 ${index === currentImageIndex ? 'bg-blue-600' : 'bg-white/60'}`} aria-label={`Go to image ${index + 1}`} />
+                      <button 
+                        key={index} 
+                        onClick={() => setCurrentImageIndex(index)} 
+                        className={`w-2.5 h-2.5 rounded-full ${index === currentImageIndex ? 'bg-blue-600' : 'bg-white/70 hover:bg-white/90'}`} 
+                        aria-label={`Go to image ${index + 1}`} 
+                      />
                     ))}
                   </div>
                 </>
               )}
             </div>
             {images.length > 1 && (
-              <div className="p-2 flex overflow-x-auto gap-2 border-t border-gray-200">
+              <div className="p-3 flex overflow-x-auto gap-3 border-t border-gray-200">
                 {images.map((image, index) => (
-                  <button key={index} onClick={() => setCurrentImageIndex(index)} className={`flex-shrink-0 w-16 h-16 overflow-hidden border-2 ${index === currentImageIndex ? 'border-blue-500' : 'border-transparent'}`}>
+                  <button 
+                    key={index} 
+                    onClick={() => setCurrentImageIndex(index)} 
+                    className={`flex-shrink-0 w-20 h-20 rounded-md overflow-hidden border-2 ${index === currentImageIndex ? 'border-blue-500' : 'border-gray-200 hover:border-gray-300'}`}
+                  >
                     <img src={image.url} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
@@ -110,146 +141,169 @@ const ItemDetail = () => {
           </div>
 
           {/* Item Details Card */}
-          <div className="space-y-5 overflow-y-auto">
-            <div className="border border-gray-200 p-4 bg-white">
-              <div className="flex flex-wrap justify-between items-start gap-4">
-                <div className="space-y-2">
+          <div className="space-y-6">
+            <div className="border border-gray-200 p-6 bg-white rounded-lg shadow-sm">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
+                <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
-                    <span className={`px-3 py-1 text-xs font-medium ${item.type === 'sell' ? 'bg-blue-100 text-blue-800' : ''} ${item.type === 'rent' ? 'bg-green-100 text-green-800' : ''} ${item.type === 'exchange' ? 'bg-purple-100 text-purple-800' : ''}`}>
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${item.type === 'sell' ? 'bg-blue-100 text-blue-800' : ''} ${item.type === 'rent' ? 'bg-green-100 text-green-800' : ''} ${item.type === 'exchange' ? 'bg-purple-100 text-purple-800' : ''}`}>
                       {item.type === 'sell' && 'For Sale'}
                       {item.type === 'rent' && 'For Rent'}
                       {item.type === 'exchange' && 'Exchange'}
                     </span>
-                    {item.visibility?.featured && <span className="bg-yellow-100 text-yellow-800 px-3 py-1 text-xs font-medium">Featured</span>}
-                    {item.visibility?.urgent && <span className="bg-red-100 text-red-800 px-3 py-1 text-xs font-medium">Urgent</span>}
+                    {item.visibility?.featured && <span className="bg-yellow-100 text-yellow-800 px-3 py-1 text-sm font-medium rounded-full">Featured</span>}
+                    {item.visibility?.urgent && <span className="bg-red-100 text-red-800 px-3 py-1 text-sm font-medium rounded-full">Urgent</span>}
                   </div>
                   {item.type === 'exchange' ? (
-                    <div className="space-y-2">
-                      <h1 className="text-xl font-bold text-gray-900">{item.title}</h1>
-                      <div className="space-y-1">
+                    <div className="space-y-3">
+                      <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
+                      <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Repeat className="w-6 h-6 text-purple-600" />
-                          <span className="text-2xl font-bold text-black">Exchange Offer</span>
+                          <span className="text-xl font-semibold text-gray-900">Exchange Offer</span>
                         </div>
-                        {item.exchangeDetails?.exchangeFor && <p className="text-gray-700">Looking for: {item.exchangeDetails.exchangeFor}</p>}
-                        {item.exchangeDetails?.preferredSizes?.length > 0 && <p className="text-gray-700">Preferred Sizes: {item.exchangeDetails.preferredSizes.join(', ')}</p>}
-                        {item.exchangeDetails?.preferredCondition && <p className="text-gray-700">Preferred Condition: {item.exchangeDetails.preferredCondition}</p>}
-                        {item.exchangeDetails?.preferredBrands?.length > 0 && <p className="text-gray-700">Preferred Brands: {item.exchangeDetails.preferredBrands.join(', ')}</p>}
-                        {item.exchangeDetails?.exchangePreferences && <p className="text-gray-700">Preferences: {item.exchangeDetails.exchangePreferences}</p>}
-                        {item.exchangeDetails?.shippingPreference && <p className="text-gray-700">Shipping: {item.exchangeDetails.shippingPreference}</p>}
+                        {item.exchangeDetails?.exchangeFor && <p className="text-gray-700"><span className="font-medium">Looking for:</span> {item.exchangeDetails.exchangeFor}</p>}
+                        {item.exchangeDetails?.preferredSizes?.length > 0 && <p className="text-gray-700"><span className="font-medium">Preferred Sizes:</span> {item.exchangeDetails.preferredSizes.join(', ')}</p>}
+                        {item.exchangeDetails?.preferredCondition && <p className="text-gray-700"><span className="font-medium">Preferred Condition:</span> {item.exchangeDetails.preferredCondition}</p>}
+                        {item.exchangeDetails?.preferredBrands?.length > 0 && <p className="text-gray-700"><span className="font-medium">Preferred Brands:</span> {item.exchangeDetails.preferredBrands.join(', ')}</p>}
+                        {item.exchangeDetails?.exchangePreferences && <p className="text-gray-700"><span className="font-medium">Preferences:</span> {item.exchangeDetails.exchangePreferences}</p>}
+                        {item.exchangeDetails?.shippingPreference && <p className="text-gray-700"><span className="font-medium">Shipping:</span> {item.exchangeDetails.shippingPreference}</p>}
                       </div>
                     </div>
                   ) : item.type === 'rent' ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-6 h-6 text-green-600" />
-                        <h2 className="text-3xl font-bold text-black">
+                        <h2 className="text-2xl font-bold text-gray-900">
                           {formatRent(item.rentDetails, item.price?.currency || 'Rs')}
                         </h2>
-                        {item.price?.negotiable && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1">Negotiable</span>}
+                        {item.price?.negotiable && <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Negotiable</span>}
                       </div>
-                      <h1 className="text-xl font-bold text-gray-900">{item.title}</h1>
+                      <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-baseline gap-3">
-                        <h2 className="text-3xl font-bold text-black">
+                        <h2 className="text-2xl font-bold text-gray-900">
                           {item.price?.currency === 'Rs' ? `Rs ${item.price.amount?.toLocaleString() || 'Contact for Price'}` : `$${item.price.amount?.toLocaleString() || 'Contact for Price'}`}
                         </h2>
-                        {item.price?.negotiable && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1">Negotiable</span>}
+                        {item.price?.negotiable && <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Negotiable</span>}
                       </div>
-                      <h1 className="text-xl font-bold text-gray-900">{item.title}</h1>
+                      <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
                     </div>
                   )}
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2"><MapPin className="w-4 h-4" /><span>{locationText}</span></div>
+                    <div className="flex items-center gap-2"><Clock className="w-4 h-4" /><span>{formatTimeAgo(item.createdAt)}</span></div>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={toggleFavorite} className="p-2 hover:bg-gray-100">
-                    <Heart className={`w-5 h-5 ${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
+                <div className="flex gap-3">
+                  <button onClick={toggleFavorite} className="p-2 hover:bg-gray-100 rounded-full" aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}>
+                    <Heart className={`w-6 h-6 ${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-600'}`} />
                   </button>
-                  <button className="p-2 hover:bg-gray-100"><Share2 className="w-5 h-5 text-gray-600" /></button>
+                  <button className="p-2 hover:bg-gray-100 rounded-full" aria-label="Share item">
+                    <Share2 className="w-6 h-6 text-gray-600" />
+                  </button>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500">
-                <div className="flex items-center gap-1"><MapPin className="w-4 h-4" /><span>{item.location?.address || 'Unknown'}</span></div>
-                <div className="flex items-center gap-1"><Clock className="w-4 h-4" /><span>{formatTimeAgo(item.createdAt)}</span></div>
               </div>
             </div>
 
-            <div className="border border-gray-200 p-4 bg-white">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Details</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex"><div className="w-1/3 text-gray-500">Condition</div><div className="w-2/3 font-medium">{item.condition || 'Not specified'}</div></div>
-                {item.category?.name && <div className="flex"><div className="w-1/3 text-gray-500">Category</div><div className="w-2/3 font-medium">{item.category.name}</div></div>}
-                {item.sex && <div className="flex"><div className="w-1/3 text-gray-500">Gender</div><div className="w-2/3 font-medium">{item.sex}</div></div>}
-                {item.size && <div className="flex"><div className="w-1/3 text-gray-500">Size</div><div className="w-2/3 font-medium">{item.size}</div></div>}
-                {item.material && <div className="flex"><div className="w-1/3 text-gray-500">Material</div><div className="w-2/3 font-medium">{item.material}</div></div>}
-                {item.brand && <div className="flex"><div className="w-1/3 text-gray-500">Brand</div><div className="w-2/3 font-medium">{item.brand}</div></div>}
-                {item.color && <div className="flex"><div className="w-1/3 text-gray-500">Color</div><div className="w-2/3 font-medium">{item.color}</div></div>}
+            {/* Details Section */}
+            <div className="border border-gray-200 p-6 bg-white rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="flex"><span className="w-1/3 text-gray-500">Condition:</span><span className="w-2/3 font-medium">{item.condition || 'Not specified'}</span></div>
+                {item.category?.name && <div className="flex"><span className="w-1/3 text-gray-500">Category:</span><span className="w-2/3 font-medium">{item.category.name}</span></div>}
+                {item.sex && <div className="flex"><span className="w-1/3 text-gray-500">Gender:</span><span className="w-2/3 font-medium">{item.sex}</span></div>}
+                {item.size && <div className="flex"><span className="w-1/3 text-gray-500">Size:</span><span className="w-2/3 font-medium">{item.size}</span></div>}
+                {item.material && <div className="flex"><span className="w-1/3 text-gray-500">Material:</span><span className="w-2/3 font-medium">{item.material}</span></div>}
+                {item.brand && <div className="flex"><span className="w-1/3 text-gray-500">Brand:</span><span className="w-2/3 font-medium">{item.brand}</span></div>}
+                {item.color && <div className="flex"><span className="w-1/3 text-gray-500">Color:</span><span className="w-2/3 font-medium">{item.color}</span></div>}
                 {item.type === 'rent' && (
                   <>
-                    {item.rentDetails?.duration && <div className="flex"><div className="w-1/3 text-gray-500">Rental Duration</div><div className="w-2/3 font-medium">{item.rentDetails.duration}</div></div>}
-                    {item.rentDetails?.securityDeposit && <div className="flex"><div className="w-1/3 text-gray-500">Security Deposit</div><div className="w-2/3 font-medium">Rs {item.rentDetails.securityDeposit.toLocaleString()}</div></div>}
-                    {item.rentDetails?.availabilityDate && <div className="flex"><div className="w-1/3 text-gray-500">Available From</div><div className="w-2/3 font-medium">{formatDate(item.rentDetails.availabilityDate)}</div></div>}
-                    {item.rentDetails?.cleaningFee && <div className="flex"><div className="w-1/3 text-gray-500">Cleaning Fee</div><div className="w-2/3 font-medium">Rs {item.rentDetails.cleaningFee.toLocaleString()}</div></div>}
-                    {item.rentDetails?.lateFee && <div className="flex"><div className="w-1/3 text-gray-500">Late Fee</div><div className="w-2/3 font-medium">Rs {item.rentDetails.lateFee.toLocaleString()}</div></div>}
-                    {item.rentDetails?.careInstructions && <div className="flex"><div className="w-1/3 text-gray-500">Care Instructions</div><div className="w-2/3 font-medium">{item.rentDetails.careInstructions}</div></div>}
+                    {item.rentDetails?.duration && <div className="flex"><span className="w-1/3 text-gray-500">Rental Duration:</span><span className="w-2/3 font-medium">{item.rentDetails.duration}</span></div>}
+                    {item.rentDetails?.securityDeposit && <div className="flex"><span className="w-1/3 text-gray-500">Security Deposit:</span><span className="w-2/3 font-medium">Rs {item.rentDetails.securityDeposit.toLocaleString()}</span></div>}
+                    {item.rentDetails?.availabilityDate && <div className="flex"><span className="w-1/3 text-gray-500">Available From:</span><span className="w-2/3 font-medium">{formatDate(item.rentDetails.availabilityDate)}</span></div>}
+                    {item.rentDetails?.cleaningFee && <div className="flex"><span className="w-1/3 text-gray-500">Cleaning Fee:</span><span className="w-2/3 font-medium">Rs {item.rentDetails.cleaningFee.toLocaleString()}</span></div>}
+                    {item.rentDetails?.lateFee && <div className="flex"><span className="w-1/3 text-gray-500">Late Fee:</span><span className="w-2/3 font-medium">Rs {item.rentDetails.lateFee.toLocaleString()}</span></div>}
+                    {item.rentDetails?.careInstructions && <div className="flex"><span className="w-1/3 text-gray-500">Care Instructions:</span><span className="w-2/3 font-medium">{item.rentDetails.careInstructions}</span></div>}
                     {item.rentDetails?.sizeAvailability?.length > 0 && (
-                      <div className="flex"><div className="w-1/3 text-gray-500">Sizes Available</div><div className="w-2/3 font-medium">{item.rentDetails.sizeAvailability.map(s => `${s.size} (${s.quantity})`).join(', ')}</div></div>
+                      <div className="flex"><span className="w-1/3 text-gray-500">Sizes Available:</span><span className="w-2/3 font-medium">{item.rentDetails.sizeAvailability.map(s => `${s.size} (${s.quantity})`).join(', ')}</span></div>
                     )}
                   </>
                 )}
               </div>
             </div>
 
-            <div className="border border-gray-200 p-4 bg-white">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Description</h3>
-              <p className="text-gray-700 whitespace-pre-line">{item.description}</p>
+            {/* Description Section */}
+            <div className="border border-gray-200 p-6 bg-white rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Description</h3>
+              <p className="text-gray-700 whitespace-pre-line">{item.description || 'No description provided'}</p>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-1 overflow-y-auto">
-          <div className="bg-white border border-gray-200 shadow-sm p-5 space-y-5 sticky">
-            <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-              <img src={item.seller?.avatar || '/default-avatar.png'} alt="Seller" className="w-12 h-12 rounded-full object-cover border border-gray-200" />
+        {/* Right Column: Seller Info */}
+        <div className="lg:col-span-1">
+          <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-lg space-y-6 sticky top-6">
+            <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+              <img 
+                src={item.seller?.avatar || '/default-avatar.png'} 
+                alt="Seller" 
+                className="w-14 h-14 rounded-full object-cover border border-gray-200" 
+              />
               <div>
-                <h3 className="font-semibold text-gray-900">{item.contactInfo?.name || item.seller?.name || 'Private User'}</h3>
-                <p className="text-xs text-gray-500">Member since {item.seller?.memberSince || 'Unknown'}</p>
-                <a href="#" className="text-xs text-blue-600 hover:underline">View profile</a>
+                <h3 className="font-semibold text-gray-900 text-lg">{item.contactInfo?.name || item.seller?.name || 'Private User'}</h3>
+                <p className="text-sm text-gray-500">Member since {item.seller?.memberSince || 'Unknown'}</p>
+                <a href="#" className="text-sm text-blue-600 hover:underline">View profile</a>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {(item.contactInfo?.showPhoneNumber === true || showPhone) ? (
-                <div className="w-full bg-green-50 text-green-700 py-2.5 px-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2"><Phone className="w-4 h-4" /><span className="font-medium">{phoneNumber}</span></div>
-                  <a href={`tel:${phoneNumber}`} className="text-xs text-green-700 hover:underline">Call</a>
+                <div className="w-full bg-green-50 text-green-700 py-3 px-4 flex items-center justify-between rounded-md">
+                  <div className="flex items-center gap-2"><Phone className="w-5 h-5" /><span className="font-medium">{phoneNumber}</span></div>
+                  <a href={`tel:${phoneNumber}`} className="text-sm text-green-700 hover:underline">Call</a>
                 </div>
               ) : (
-                <button onClick={handleShowPhone} className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 flex items-center justify-center gap-2 transition-colors text-sm font-medium">
-                  <Phone className="w-4 h-4" />
+                <button 
+                  onClick={handleShowPhone} 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 flex items-center justify-center gap-2 rounded-md transition-colors text-sm font-medium"
+                >
+                  <Phone className="w-5 h-5" />
                   {showPhone ? 'Hide phone number' : 'Show phone number'}
                 </button>
               )}
-              <button className="w-full border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 flex items-center justify-center gap-2 transition-colors text-sm font-medium">
-                <MessageCircle className="w-4 h-4" /> Message seller
+              <button 
+                className="w-full border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 flex items-center justify-center gap-2 rounded-md transition-colors text-sm font-medium"
+              >
+                <MessageCircle className="w-5 h-5" /> Message Seller
               </button>
             </div>
-            <div className="pt-3 border-t border-gray-100">
-              <h4 className="text-sm font-medium text-gray-800 mb-2">Location</h4>
-              <div className="flex items-center gap-2 text-sm text-gray-600"><MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" /><span>{item.location?.address || 'Unknown'}</span></div>
+            <div className="pt-4 border-t border-gray-100">
+              <h4 className="text-sm font-medium text-gray-800 mb-3">Location</h4>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                <span>{locationText}</span>
+              </div>
             </div>
-            <div className="pt-3 border-t border-gray-100">
-              <h4 className="text-sm font-medium text-gray-800 mb-2">Safety Tips</h4>
-              <ul className="text-xs text-gray-600 space-y-1"><li>• Meet in a public place</li><li>• Check the item before paying</li><li>• Pay only after inspecting the item</li></ul>
+            <div className="pt-4 border-t border-gray-100">
+              <h4 className="text-sm font-medium text-gray-800 mb-3">Safety Tips</h4>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start gap-2"><span className="mt-1 w-1 h-1 rounded-full bg-gray-600 flex-shrink-0"></span> Meet in a public place</li>
+                <li className="flex items-start gap-2"><span className="mt-1 w-1 h-1 rounded-full bg-gray-600 flex-shrink-0"></span> Check the item before paying</li>
+                <li className="flex items-start gap-2"><span className="mt-1 w-1 h-1 rounded-full bg-gray-600 flex-shrink-0"></span> Pay only after inspecting the item</li>
+              </ul>
             </div>
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-sm">
               <span className="text-gray-500">AD ID: {item._id?.substring(0, 8) || 'Unknown'}</span>
               <button className="text-blue-600 hover:underline">Report this ad</button>
             </div>
           </div>
         </div>
       </div>
-      <div className="mt-8"><RelatedItems currentItem={item} /></div>
+      <div className="mt-12">
+        <RelatedItems currentItem={item} />
+      </div>
     </div>
   );
 };

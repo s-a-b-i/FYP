@@ -38,7 +38,8 @@ const itemSchema = new mongoose.Schema({
     },
     currency: {
       type: String,
-      default: 'Rs'
+      default: 'PKR', // Fixed to PKR only
+      enum: ['PKR'] // Restrict to PKR
     },
     negotiable: {
       type: Boolean,
@@ -72,8 +73,7 @@ const itemSchema = new mongoose.Schema({
   material: {
     type: String,
     trim: true,
-    maxlength: 100,
-    description: 'e.g., "100% Cotton" or "Polyester blend"'
+    maxlength: 100
   },
   brand: {
     type: String,
@@ -83,11 +83,19 @@ const itemSchema = new mongoose.Schema({
   color: {
     type: String,
     trim: true,
-    maxlength: 30,
-    description: 'e.g., "Red" or "Navy Blue"'
+    maxlength: 30
   },
   location: {
-    address: String,
+    city: {
+      type: String,
+      required: [true, 'City is required'],
+      trim: true
+    },
+    neighborhood: {
+      type: String,
+      required: [true, 'Neighborhood is required'],
+      trim: true
+    },
     coordinates: {
       type: [Number], // [longitude, latitude]
       index: '2dsphere'
@@ -152,14 +160,12 @@ const itemSchema = new mongoose.Schema({
     lateFee: {
       type: Number,
       min: 0,
-      default: 0,
-      description: 'Fee per day/week/month for late return'
+      default: 0
     },
     careInstructions: {
       type: String,
       maxlength: 500,
-      trim: true,
-      description: 'e.g., "Dry clean only" or "Hand wash"'
+      trim: true
     }
   },
   exchangeDetails: {
@@ -170,13 +176,11 @@ const itemSchema = new mongoose.Schema({
         'Exchange target is required for exchange items'
       ],
       trim: true,
-      maxlength: 100,
-      description: 'e.g., "winter jacket" or "formal dress"'
+      maxlength: 100
     },
     preferredSizes: [{
       type: String,
-      enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Custom'],
-      required: true
+      enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Custom']
     }],
     preferredCondition: {
       type: String,
@@ -191,8 +195,7 @@ const itemSchema = new mongoose.Schema({
     exchangePreferences: {
       type: String,
       maxlength: 500,
-      trim: true,
-      description: 'e.g., "Looking for bright colors" or "No polyester"'
+      trim: true
     },
     shippingPreference: {
       type: String,

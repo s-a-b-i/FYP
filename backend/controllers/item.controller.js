@@ -7,8 +7,6 @@ import { createModerationNotification } from '../utils/notifications.js';
 import mongoose from 'mongoose';
 
 // Create Item
-// item.controller.js
-// item.controller.js
 export const createItem = asyncHandler(async (req, res) => {
   const { 
     category, type, title, description, condition, sex, size, material, brand, color, 
@@ -26,8 +24,8 @@ export const createItem = asyncHandler(async (req, res) => {
   if (!category || !type || !title || !description || !condition || !sex) {
     throw new ApiError(400, 'Missing required fields');
   }
-  if (!parsedLocation || !parsedLocation.address) {
-    throw new ApiError(400, 'Location address is required');
+  if (!parsedLocation || !parsedLocation.city || !parsedLocation.neighborhood) {
+    throw new ApiError(400, 'City and neighborhood are required');
   }
 
   // Clothing-specific validation
@@ -64,14 +62,13 @@ export const createItem = asyncHandler(async (req, res) => {
         return {
           url: result.secure_url,
           public_id: result.public_id,
-          isMain: index === 0, // First image is main
+          isMain: index === 0,
           order: index
         };
       })
     );
   }
 
-  // Enforce at least one image
   if (uploadedImages.length === 0) {
     throw new ApiError(400, 'At least one image is required');
   }
@@ -88,9 +85,13 @@ export const createItem = asyncHandler(async (req, res) => {
     material,
     brand,
     color,
-    price: type === 'sell' ? { amount: parsedPrice.amount, currency: parsedPrice.currency || 'Rs', negotiable: parsedPrice.negotiable || false } : undefined,
+    price: type === 'sell' ? { amount: parsedPrice.amount, currency: 'PKR', negotiable: parsedPrice.negotiable || false } : undefined,
     images: uploadedImages,
-    location: { address: parsedLocation.address, coordinates: parsedLocation.coordinates || [] },
+    location: { 
+      city: parsedLocation.city, 
+      neighborhood: parsedLocation.neighborhood, 
+      coordinates: parsedLocation.coordinates || [] 
+    },
     status: 'pending',
     rentDetails: type === 'rent' ? {
       duration: parsedRentDetails.duration,
@@ -122,6 +123,7 @@ export const createItem = asyncHandler(async (req, res) => {
   };
 
   const item = await Item.create(itemData);
+  console.log("Created item location:", item.location); // Debug log
   res.status(201).json({ status: 'success', data: item });
 });
 
@@ -136,6 +138,8 @@ export const getItems = asyncHandler(async (req, res) => {
   if (req.query.type) filter.type = req.query.type;
   if (req.query.size) filter.size = req.query.size;
   if (req.query.brand) filter.brand = { $regex: req.query.brand, $options: 'i' };
+  if (req.query.city) filter['location.city'] = { $regex: req.query.city, $options: 'i' };
+  if (req.query.neighborhood) filter['location.neighborhood'] = { $regex: req.query.neighborhood, $options: 'i' };
 
   const items = await Item.find(filter)
     .populate('category')
@@ -166,7 +170,7 @@ export const getUserItems = asyncHandler(async (req, res) => {
 
 // Search Items (Public)
 export const searchItems = asyncHandler(async (req, res) => {
-  const { query, category, type, minPrice, maxPrice, condition, location, size, brand, color } = req.query;
+  const { query, category, type, minPrice, maxPrice, condition, city, neighborhood, size, brand, color } = req.query;
   const filter = { status: 'active' };
 
   if (query) {
@@ -183,10 +187,8 @@ export const searchItems = asyncHandler(async (req, res) => {
     if (minPrice) filter['price.amount'].$gte = parseFloat(minPrice);
     if (maxPrice) filter['price.amount'].$lte = parseFloat(maxPrice);
   }
-  if (location) {
-    const coordinates = location.split(',').map(Number);
-    filter['location.coordinates'] = { $near: { $geometry: { type: 'Point', coordinates }, $maxDistance: 50000 } };
-  }
+  if (city) filter['location.city'] = { $regex: city, $options: 'i' };
+  if (neighborhood) filter['location.neighborhood'] = { $regex: neighborhood, $options: 'i' };
   if (size) filter.size = size;
   if (brand) filter.brand = { $regex: brand, $options: 'i' };
   if (color) filter.color = { $regex: color, $options: 'i' };
@@ -199,17 +201,16 @@ export const searchItems = asyncHandler(async (req, res) => {
 });
 
 // Update Item
-// item.controller.js
 export const updateItem = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
   if (!item) throw new ApiError(404, 'Item not found');
 
-  const { size, material, brand, color, rentDetails, exchangeDetails, location } = req.body;
+  const { size, material, brand, color, rentDetails, exchangeDetails, location, contactInfo } = req.body;
 
-  // Parse JSON strings if sent via FormData
   const parsedLocation = typeof location === "string" ? JSON.parse(location) : location;
   const parsedRentDetails = typeof rentDetails === "string" ? JSON.parse(rentDetails) : rentDetails;
   const parsedExchangeDetails = typeof exchangeDetails === "string" ? JSON.parse(exchangeDetails) : exchangeDetails;
+  const parsedContactInfo = typeof contactInfo === "string" ? JSON.parse(contactInfo) : contactInfo;
 
   const clothingCategoryId = 'clothing_category_id';
   if (item.category.toString() === clothingCategoryId && size && !['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Custom'].includes(size)) {
@@ -227,17 +228,27 @@ export const updateItem = asyncHandler(async (req, res) => {
     }
   }
 
-  // Ensure location is updated as an object
   if (parsedLocation) {
     item.location = {
-      address: parsedLocation.address || item.location.address,
+      city: parsedLocation.city || item.location.city,
+      neighborhood: parsedLocation.neighborhood || item.location.neighborhood,
       coordinates: parsedLocation.coordinates || item.location.coordinates || []
     };
   }
 
+  if (parsedContactInfo) {
+    item.contactInfo = {
+      name: parsedContactInfo.name || item.contactInfo.name,
+      phoneNumber: parsedContactInfo.phoneNumber || item.contactInfo.phoneNumber,
+      showPhoneNumber: parsedContactInfo.showPhoneNumber !== undefined ? parsedContactInfo.showPhoneNumber : item.contactInfo.showPhoneNumber
+    };
+  }
+
   Object.assign(item, {
-    ...req.body,
-    location: item.location, // Preserve the updated location object
+    size,
+    material,
+    brand,
+    color,
     rentDetails: parsedRentDetails ? { ...item.rentDetails, ...parsedRentDetails } : item.rentDetails,
     exchangeDetails: parsedExchangeDetails ? { ...item.exchangeDetails, ...parsedExchangeDetails } : item.exchangeDetails
   });
@@ -249,17 +260,14 @@ export const updateItem = asyncHandler(async (req, res) => {
 });
 
 // Upload Item Images
-// Upload Item Images
 export const uploadItemImages = asyncHandler(async (req, res) => {
   const item = await Item.findOne({ _id: req.params.id, user: req.user._id });
   if (!item) throw new ApiError(404, 'Item not found');
 
   if (!req.files || req.files.length === 0) throw new ApiError(400, 'No images provided');
 
-  // Filter out invalid images and keep only those with public_id and url
   item.images = item.images.filter(img => img.url && img.public_id);
 
-  // Check total image limit
   const currentImageCount = item.images.length;
   const newImageCount = req.files.length;
   if (currentImageCount + newImageCount > 12) {
@@ -275,7 +283,7 @@ export const uploadItemImages = asyncHandler(async (req, res) => {
       return {
         url: result.secure_url,
         public_id: result.public_id,
-        isMain: index === 0 && isFirstUpload, // Set first image as main only on initial upload
+        isMain: index === 0 && isFirstUpload,
         order: item.images.length + index
       };
     })
@@ -283,7 +291,6 @@ export const uploadItemImages = asyncHandler(async (req, res) => {
 
   item.images.push(...uploadedImages);
 
-  // Ensure there's always a main image if images exist
   if (item.images.length > 0 && !item.images.some(img => img.isMain)) {
     item.images[0].isMain = true;
   }
@@ -617,7 +624,8 @@ export const getRelatedItems = asyncHandler(async (req, res) => {
     category: item.category,
     _id: { $ne: item._id },
     status: 'active',
-    size: item.size // Match size for clothing items
+    size: item.size,
+    'location.city': item.location.city
   })
     .populate('category')
     .limit(6);

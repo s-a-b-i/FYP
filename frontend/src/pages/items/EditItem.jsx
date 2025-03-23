@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
-import { X, Plus, Image as ImageIcon } from "lucide-react";
+import { X, Plus, Image as ImageIcon, MapPinIcon, ChevronUp } from "lucide-react";
 import Button from "@/components/shared/Button";
 import Input from "@/components/shared/Input";
 import Select from "@/components/shared/Select";
@@ -9,6 +9,7 @@ import CategorySelectionDialog from "@/pages/post/CategorySelectionDialog";
 import { itemAPI } from "@/api/item";
 import { categoryAPI } from "@/api/category";
 import { H1, H2 } from "@/components/shared/Heading";
+import { State, City } from "country-state-city";
 
 const EditItem = () => {
   const navigate = useNavigate();
@@ -21,6 +22,17 @@ const EditItem = () => {
   const [error, setError] = useState(null);
   const [type, setType] = useState("");
 
+  // Location-related state
+  const [provinces, setProvinces] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [neighborhoods, setNeighborhoods] = useState([]);
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  const [isProvinceDropdownOpen, setIsProvinceDropdownOpen] = useState(false);
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+  const [isNeighborhoodDropdownOpen, setIsNeighborhoodDropdownOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -31,7 +43,7 @@ const EditItem = () => {
     material: "",
     brand: "",
     color: "",
-    location: "",
+    location: { city: "", neighborhood: "" },
     images: [],
     name: "",
     phoneNumber: "",
@@ -81,6 +93,11 @@ const EditItem = () => {
           setSelectedCategory(categoryResponse.data || categoryResponse);
         }
 
+        // Parse location data
+        const location = item.location || { city: "", neighborhood: "" };
+        setSelectedCity(location.city || "");
+        setSelectedNeighborhood(location.neighborhood || "");
+
         setFormData({
           title: item.title || "",
           description: item.description || "",
@@ -91,7 +108,7 @@ const EditItem = () => {
           material: item.material || "",
           brand: item.brand || "",
           color: item.color || "",
-          location: item.location?.address || item.location || "",
+          location: { city: location.city || "", neighborhood: location.neighborhood || "" },
           images: [],
           name: item.contactInfo?.name || "",
           phoneNumber: item.contactInfo?.phoneNumber || "",
@@ -115,6 +132,16 @@ const EditItem = () => {
         if (item.images && item.images.length > 0) {
           setExistingImages(item.images);
         }
+
+        // Fetch provinces and set initial province based on city
+        const pakistanProvinces = State.getStatesOfCountry("PK");
+        setProvinces(pakistanProvinces);
+        if (location.city) {
+          const cityData = City.getAllCities().find(c => c.name === location.city && c.countryCode === "PK");
+          if (cityData) {
+            setSelectedProvince(cityData.stateCode);
+          }
+        }
       } catch (err) {
         setError("Failed to load item: " + err.message);
       } finally {
@@ -124,6 +151,42 @@ const EditItem = () => {
 
     fetchItemData();
   }, [isAuthenticated, navigate, id]);
+
+  useEffect(() => {
+    if (selectedProvince) {
+      const provinceCities = City.getCitiesOfState("PK", selectedProvince);
+      setCities(provinceCities);
+      if (!provinceCities.some(city => city.name === selectedCity)) {
+        setSelectedCity("");
+        setSelectedNeighborhood("");
+      }
+    }
+  }, [selectedProvince]);
+
+  useEffect(() => {
+    if (selectedCity) {
+      const neighborhoodData = {
+        "Lahore": ["Gulberg", "DHA", "Model Town", "Johar Town", "Cantt", "Iqbal Town", "Faisal Town", "Shadman", "Garden Town", "Township"],
+        "Faisalabad": ["D Ground", "Peoples Colony", "Madina Town", "Gulberg", "Jinnah Colony", "Civil Lines", "Sargodha Road", "Satiana Road"],
+        "Rawalpindi": ["Saddar", "Satellite Town", "Chaklala", "Bahria Town", "DHA", "West Ridge", "Adiala Road", "Gulraiz"],
+        "Multan": ["Cantt", "Gulgasht Colony", "Model Town", "Shah Rukn-e-Alam", "Boson Road", "New Multan", "Wapda Town"],
+        "Gujranwala": ["Satellite Town", "Model Town", "Civil Lines", "Wapda Town", "G.T. Road", "DHA", "Peoples Colony"],
+        "Sialkot": ["Cantt", "Model Town", "Rangpura", "Defence", "Gohadpur", "Kashmir Road", "Paris Road"],
+        "Karachi": ["Clifton", "DHA", "Gulshan-e-Iqbal", "North Nazimabad", "Saddar", "PECHS", "Korangi", "Malir", "Nazimabad", "Federal B Area"],
+        "Hyderabad": ["Latifabad", "Qasimabad", "Saddar", "Hussainabad", "Auto Bhan Road", "Civil Lines", "Thandi Sarak"],
+        "Sukkur": ["Shalimar", "Queens Road", "Minara Road", "Military Road", "New Sukkur", "Old Sukkur"],
+        "Peshawar": ["Hayatabad", "University Town", "Cantt", "Saddar", "Gulberg", "DHA", "Warsak Road"],
+        "Abbottabad": ["Supply", "Mandian", "PMA Road", "Jinnahabad", "Habibullah Colony"],
+        "Mardan": ["Cantonment", "Shamsi Road", "Baghdada", "Toru", "Sheikh Maltoon Town"],
+        "Quetta": ["Cantt", "Jinnah Town", "Satellite Town", "Brewery Road", "Sariab Road", "Zarghoon Road", "Hanna Road"],
+        "Islamabad": ["F-7", "F-8", "F-10", "F-11", "G-6", "G-7", "G-8", "G-9", "G-10", "G-11", "E-7", "E-11", "D-12", "Blue Area", "DHA", "Bahria Town"],
+      };
+      setNeighborhoods(neighborhoodData[selectedCity] || []);
+      if (!neighborhoodData[selectedCity]?.includes(selectedNeighborhood)) {
+        setSelectedNeighborhood("");
+      }
+    }
+  }, [selectedCity]);
 
   const handleChange = (e) => {
     const { name, value, type: inputType, checked } = e.target;
@@ -213,139 +276,214 @@ const EditItem = () => {
     setSelectedCategory(newCategory);
   };
 
+  const handleProvinceSelect = (provinceIsoCode, provinceName) => {
+    setSelectedProvince(provinceIsoCode);
+    setFormData((prev) => ({
+      ...prev,
+      location: { ...prev.location, city: "", neighborhood: "" },
+    }));
+    setIsProvinceDropdownOpen(false);
+  };
+
+  const handleCitySelect = (cityName) => {
+    setSelectedCity(cityName);
+    setFormData((prev) => ({
+      ...prev,
+      location: { ...prev.location, city: cityName, neighborhood: "" },
+    }));
+    setIsCityDropdownOpen(false);
+  };
+
+  const handleNeighborhoodSelect = (neighborhood) => {
+    setSelectedNeighborhood(neighborhood);
+    setFormData((prev) => ({
+      ...prev,
+      location: { ...prev.location, neighborhood },
+    }));
+    setIsNeighborhoodDropdownOpen(false);
+  };
+
+  const ProvinceDropdown = () => (
+    <div className="absolute top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 z-50 max-h-48 overflow-y-auto">
+      {provinces.map((province) => (
+        <button
+          key={province.isoCode}
+          onClick={() => handleProvinceSelect(province.isoCode, province.name)}
+          className="w-full px-3 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-2 transition-colors"
+        >
+          <MapPinIcon className="h-4 w-4 text-gray-500" />
+          <span>{province.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  const CityDropdown = () => (
+    <div className="absolute top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 z-50 max-h-48 overflow-y-auto">
+      {cities.map((city) => (
+        <button
+          key={city.name}
+          onClick={() => handleCitySelect(city.name)}
+          className="w-full px-3 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-2 transition-colors"
+        >
+          <MapPinIcon className="h-4 w-4 text-gray-500" />
+          <span>{city.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  const NeighborhoodDropdown = () => (
+    <div className="absolute top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 z-50 max-h-48 overflow-y-auto">
+      {neighborhoods.map((neighborhood) => (
+        <button
+          key={neighborhood}
+          onClick={() => handleNeighborhoodSelect(neighborhood)}
+          className="w-full px-3 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-2 transition-colors"
+        >
+          <MapPinIcon className="h-4 w-4 text-gray-500" />
+          <span>{neighborhood}</span>
+        </button>
+      ))}
+    </div>
+  );
+
   const validateForm = () => {
     const totalImagesAfterUpdate = existingImages.length - removedImageIds.length + formData.images.length;
-    const clothingCategoryId = 'clothing_category_id'; // Replace with actual ID
-  
+    const clothingCategoryId = 'clothing_category_id';
+
     if (totalImagesAfterUpdate === 0) {
       setError("At least one image is required");
       return false;
     }
-  
+
     if (!selectedCategory || !selectedCategory._id) {
       setError("Category is required");
       return false;
     }
-  
+
     if (!type) {
       setError("Item type is required");
       return false;
     }
-  
+
     if (type === "sell" && !formData.price) {
       setError("Price is required for sell items");
       return false;
     }
-  
+
     if (type === "rent" && (!formData.rentDuration || !formData.pricePerUnit || !formData.availabilityDate)) {
       setError("Rent duration, price per unit, and availability date are required for rent items");
       return false;
     }
-  
+
     if (type === "exchange" && !formData.exchangeFor) {
       setError("Exchange for is required for exchange items");
       return false;
     }
-  
+
     if (selectedCategory?._id === clothingCategoryId && !formData.size) {
       setError("Size is required for clothing items");
       return false;
     }
-  
+
     if (formData.size && !["XS", "S", "M", "L", "XL", "XXL", "Custom"].includes(formData.size)) {
       setError("Please select a valid size");
       return false;
     }
-  
+
+    if (!formData.location.city || !formData.location.neighborhood) {
+      setError("City and neighborhood are required");
+      return false;
+    }
+
     return true;
   };
-  
-// EditItem.js
-// EditItem.js
-const handleSubmit = async (e) => {
-  e.preventDefault();
 
-  if (!validateForm()) {
-    return;
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log("Submitting formData:", formData); // Debug log to verify data before submission
 
-  try {
-    setLoading(true);
-    setError(null);
-
-    const categoryId = selectedCategory?._id || "";
-
-    const itemData = new FormData();
-    itemData.append("title", formData.title);
-    itemData.append("description", formData.description);
-    if (type === "sell") {
-      itemData.append("price", JSON.stringify({ amount: parseFloat(formData.price) }));
+    if (!validateForm()) {
+      return;
     }
-    itemData.append("sex", formData.sex);
-    itemData.append("condition", formData.condition);
-    if (formData.size) itemData.append("size", formData.size);
-    itemData.append("material", formData.material);
-    itemData.append("brand", formData.brand);
-    itemData.append("color", formData.color);
-    itemData.append("location", JSON.stringify({ address: formData.location }));
-    itemData.append("category", categoryId);
-    itemData.append("type", type);
-    itemData.append("removedImages", JSON.stringify(removedImageIds));
 
-    if (type === "rent") {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const categoryId = selectedCategory?._id || "";
+
+      const itemData = new FormData();
+      itemData.append("title", formData.title);
+      itemData.append("description", formData.description);
+      if (type === "sell") {
+        itemData.append("price", JSON.stringify({ amount: parseFloat(formData.price), currency: "PKR" }));
+      }
+      itemData.append("sex", formData.sex);
+      itemData.append("condition", formData.condition);
+      if (formData.size) itemData.append("size", formData.size);
+      itemData.append("material", formData.material);
+      itemData.append("brand", formData.brand);
+      itemData.append("color", formData.color);
+      itemData.append("location", JSON.stringify(formData.location));
+      itemData.append("category", categoryId);
+      itemData.append("type", type);
+      itemData.append("removedImages", JSON.stringify(removedImageIds));
+
+      if (type === "rent") {
+        itemData.append(
+          "rentDetails",
+          JSON.stringify({
+            duration: formData.rentDuration,
+            pricePerUnit: Number(formData.pricePerUnit) || undefined,
+            securityDeposit: Number(formData.securityDeposit) || undefined,
+            availabilityDate: formData.availabilityDate,
+            sizeAvailability: formData.sizeAvailability.filter(s => s.size),
+            cleaningFee: Number(formData.cleaningFee) || undefined,
+            lateFee: Number(formData.lateFee) || undefined,
+            careInstructions: formData.careInstructions,
+          })
+        );
+      }
+
+      if (type === "exchange") {
+        itemData.append(
+          "exchangeDetails",
+          JSON.stringify({
+            exchangeFor: formData.exchangeFor,
+            preferredSizes: formData.preferredSizes,
+            preferredCondition: formData.preferredCondition || "any",
+            preferredBrands: formData.preferredBrands,
+            exchangePreferences: formData.exchangePreferences,
+            shippingPreference: formData.shippingPreference || "local-only",
+          })
+        );
+      }
+
       itemData.append(
-        "rentDetails",
+        "contactInfo",
         JSON.stringify({
-          duration: formData.rentDuration,
-          pricePerUnit: Number(formData.pricePerUnit) || undefined,
-          securityDeposit: Number(formData.securityDeposit) || undefined,
-          availabilityDate: formData.availabilityDate,
-          sizeAvailability: formData.sizeAvailability.filter(s => s.size),
-          cleaningFee: Number(formData.cleaningFee) || undefined,
-          lateFee: Number(formData.lateFee) || undefined,
-          careInstructions: formData.careInstructions,
+          name: formData.name,
+          phoneNumber: formData.phoneNumber,
+          showPhoneNumber: formData.showPhoneNumber,
         })
       );
+
+      await itemAPI.updateItem(id, itemData);
+
+      if (formData.images.length > 0) {
+        await itemAPI.uploadItemImages(id, formData.images);
+      }
+
+      navigate("/my-items");
+    } catch (err) {
+      console.error("Update error:", err);
+      setError("Failed to update item: " + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
     }
-
-    if (type === "exchange") {
-      itemData.append(
-        "exchangeDetails",
-        JSON.stringify({
-          exchangeFor: formData.exchangeFor,
-          preferredSizes: formData.preferredSizes,
-          preferredCondition: formData.preferredCondition || "any",
-          preferredBrands: formData.preferredBrands,
-          exchangePreferences: formData.exchangePreferences,
-          shippingPreference: formData.shippingPreference || "local-only",
-        })
-      );
-    }
-
-    itemData.append(
-      "contactInfo",
-      JSON.stringify({
-        name: formData.name,
-        phoneNumber: formData.phoneNumber,
-        showPhoneNumber: formData.showPhoneNumber,
-      })
-    );
-
-    await itemAPI.updateItem(id, itemData);
-
-    if (formData.images.length > 0) {
-      await itemAPI.uploadItemImages(id, formData.images);
-    }
-
-    navigate("/my-items");
-  } catch (err) {
-    console.error("Update error:", err);
-    setError("Failed to update item: " + (err.response?.data?.message || err.message));
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const getTypeStyles = (selectedType) => {
     switch (selectedType) {
@@ -559,19 +697,66 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   placeholder="Enter Price"
                   required
-                  prefix="Rs"
+                  prefix="PKR"
                   disabled={loading}
                 />
               )}
-              <Input
-                label="Location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                placeholder="Select Location"
-                required
-                disabled={loading}
-              />
+              <div className="space-y-4">
+                <div className="relative">
+                  <label className="block text-sm font-medium mb-2">Province</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsProvinceDropdownOpen(!isProvinceDropdownOpen)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white flex items-center justify-between hover:bg-gray-50 transition-colors text-sm"
+                    disabled={loading}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPinIcon className="h-4 w-4 text-gray-700" />
+                      <span className="truncate">{selectedProvince ? provinces.find(p => p.isoCode === selectedProvince)?.name : "Select Province"}</span>
+                    </div>
+                    <ChevronUp className={`h-4 w-4 transition-transform ${isProvinceDropdownOpen ? '' : 'rotate-180'}`} />
+                  </button>
+                  {isProvinceDropdownOpen && <ProvinceDropdown />}
+                </div>
+
+                {selectedProvince && (
+                  <div className="relative">
+                    <label className="block text-sm font-medium mb-2">City</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
+                      className="w-full px-3 py-2 border rounded-lg bg-white flex items-center justify-between hover:bg-gray-50 transition-colors text-sm"
+                      disabled={loading}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPinIcon className="h-4 w-4 text-gray-700" />
+                        <span className="truncate">{selectedCity || "Select City"}</span>
+                      </div>
+                      <ChevronUp className={`h-4 w-4 transition-transform ${isCityDropdownOpen ? '' : 'rotate-180'}`} />
+                    </button>
+                    {isCityDropdownOpen && <CityDropdown />}
+                  </div>
+                )}
+
+                {selectedCity && (
+                  <div className="relative">
+                    <label className="block text-sm font-medium mb-2">Neighborhood</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsNeighborhoodDropdownOpen(!isNeighborhoodDropdownOpen)}
+                      className="w-full px-3 py-2 border rounded-lg bg-white flex items-center justify-between hover:bg-gray-50 transition-colors text-sm"
+                      disabled={loading}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPinIcon className="h-4 w-4 text-gray-700" />
+                        <span className="truncate">{selectedNeighborhood || "Select Neighborhood"}</span>
+                      </div>
+                      <ChevronUp className={`h-4 w-4 transition-transform ${isNeighborhoodDropdownOpen ? '' : 'rotate-180'}`} />
+                    </button>
+                    {isNeighborhoodDropdownOpen && <NeighborhoodDropdown />}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -597,7 +782,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   placeholder="Enter rental price"
                   required
-                  prefix="Rs"
+                  prefix="PKR"
                   disabled={loading}
                 />
                 <Input
@@ -607,7 +792,7 @@ const handleSubmit = async (e) => {
                   value={formData.securityDeposit}
                   onChange={handleChange}
                   placeholder="Enter security deposit"
-                  prefix="Rs"
+                  prefix="PKR"
                   disabled={loading}
                 />
                 <Input
@@ -626,7 +811,7 @@ const handleSubmit = async (e) => {
                   value={formData.cleaningFee}
                   onChange={handleChange}
                   placeholder="Enter cleaning fee"
-                  prefix="Rs"
+                  prefix="PKR"
                   disabled={loading}
                 />
                 <Input
@@ -636,7 +821,7 @@ const handleSubmit = async (e) => {
                   value={formData.lateFee}
                   onChange={handleChange}
                   placeholder="Enter late fee"
-                  prefix="Rs"
+                  prefix="PKR"
                   disabled={loading}
                 />
                 <Input
@@ -798,4 +983,4 @@ const handleSubmit = async (e) => {
   );
 };
 
-export default EditItem;  
+export default EditItem;

@@ -347,7 +347,6 @@ export const getPopularCategoriesWithItems = asyncHandler(async (req, res) => {
     { $limit: parseInt(categoryLimit) }
   ]);
 
-  // For each popular category, fetch its top items
   const categoriesWithItems = await Promise.all(
     popularCategories.map(async (category) => {
       const items = await Item.find({ 
@@ -358,25 +357,26 @@ export const getPopularCategoriesWithItems = asyncHandler(async (req, res) => {
       .limit(parseInt(itemLimit))
       .lean();
       
-      // Format items for the frontend ItemCard component
       const formattedItems = items.map(item => ({
         id: item._id,
         title: item.title,
         type: item.type,
-        price: item.price?.amount,
+        price: item.price, // Pass full price object
         currency: item.price?.currency,
-        image: item.images?.find(img => img.isMain)?.url || item.images[0]?.url,
-        location: item.location?.address || 'Unknown location',
+        images: item.images || [], // Pass full images array
+        location: item.location || {}, // Pass full location object
         timeAgo: formatTimeAgo(item.createdAt),
         condition: item.condition,
         sustainabilityScore: 
           item.metadata?.sustainabilityScore || 
-          Math.floor(Math.random() * 5) + 5, // Placeholder: random score between 5-10
+          Math.floor(Math.random() * 5) + 5,
         tags: [item.sex].filter(Boolean),
         visibility: {
           featured: item.visibility?.featured || false,
           urgent: item.visibility?.urgent || false
-        }
+        },
+        rentDetails: item.rentDetails, // Include rent details if applicable
+        exchangeDetails: item.exchangeDetails // Include exchange details if applicable
       }));
       
       return {
@@ -391,6 +391,8 @@ export const getPopularCategoriesWithItems = asyncHandler(async (req, res) => {
     data: categoriesWithItems
   });
 });
+
+
 // Helper function to format time ago
 function formatTimeAgo(date) {
   const now = new Date();
