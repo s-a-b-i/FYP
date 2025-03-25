@@ -1,14 +1,14 @@
-// components/sections/Categories.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { H1, H3 } from "@/components/shared/Heading";
 import { categoryAPI } from "@/api/category";
 
 const Categories = ({ selectedCategory, setSelectedCategory }) => {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch categories on mount
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -40,7 +40,12 @@ const Categories = ({ selectedCategory, setSelectedCategory }) => {
     fetchCategories();
   }, []);
 
-  // Filter to only show parent categories
+  const handleCategoryClick = (categoryId) => {
+    console.log('Setting selected category:', categoryId);
+    setSelectedCategory(categoryId);
+    navigate(`/ads/category/${categoryId}`);
+  };
+
   const parentCategories = categories.filter((cat) => cat && !cat.parent);
 
   if (loading) return <div>Loading...</div>;
@@ -52,13 +57,12 @@ const Categories = ({ selectedCategory, setSelectedCategory }) => {
         All Categories
       </H1>
 
-      {/* Parent Categories Display */}
       <div className="flex justify-center items-center gap-3 sm:gap-4 lg:gap-6 flex-wrap max-w-[280px] xs:max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto">
         {parentCategories.map((category) => (
           <div
             key={category._id.$oid || category._id}
             className="flex flex-col items-center gap-3 group cursor-pointer"
-            onClick={() => setSelectedCategory(category.name)}
+            onClick={() => handleCategoryClick(category._id.$oid || category._id)}
           >
             <div
               className={`w-24 h-24 rounded-full ${
