@@ -129,30 +129,44 @@ export const createItem = asyncHandler(async (req, res) => {
 
 // Get Items (Public)
 export const getItems = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
+  const { category, type, city, minPrice, maxPrice, sort } = req.query;
+  
+  const filter = { 
+    status: 'active'
+  };
+  
+  if (category) {
+    filter.category = new mongoose.Types.ObjectId(category);
+  } else {
+    throw new ApiError(400, "Category is required");
+  }
 
-  const filter = { status: 'active' };
-  if (req.query.category) filter.category = req.query.category;
-  if (req.query.type) filter.type = req.query.type;
-  if (req.query.size) filter.size = req.query.size;
-  if (req.query.brand) filter.brand = { $regex: req.query.brand, $options: 'i' };
-  if (req.query.city) filter['location.city'] = { $regex: req.query.city, $options: 'i' };
-  if (req.query.neighborhood) filter['location.neighborhood'] = { $regex: req.query.neighborhood, $options: 'i' };
+  if (type) filter.type = type;
+  if (city) filter['location.city'] = { $regex: city, $options: 'i' };
+  if (minPrice || maxPrice) {
+    filter['price.amount'] = {};
+    if (minPrice) filter['price.amount'].$gte = Number(minPrice);
+    if (maxPrice) filter['price.amount'].$lte = Number(maxPrice);
+  }
 
+  const sortOptions = {
+    'most-relevant': { 'stats.views': -1 },
+    'lowest-price': { 'price.amount': 1 },
+    'highest-price': { 'price.amount': -1 },
+    'newest': { createdAt: -1 }
+  };
+  const sortOrder = sortOptions[sort] || sortOptions.newest;
+
+  console.log("Filter:", filter); // Debug log
   const items = await Item.find(filter)
     .populate('category')
-    .sort('-createdAt')
-    .skip(skip)
-    .limit(limit);
-
-  const total = await Item.countDocuments(filter);
+    .sort(sortOrder)
+    .lean();
 
   res.json({
     status: 'success',
     data: items,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    count: items.length
   });
 });
 
@@ -469,6 +483,7 @@ export const getUserItemStats = asyncHandler(async (req, res) => {
 });
 
 // Get Admin Dashboard Stats
+// Get Admin Dashboard Stats
 export const getAdminDashboardStats = asyncHandler(async (req, res) => {
   const { period = '30d' } = req.query;
   const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
@@ -505,13 +520,65 @@ export const getAdminDashboardStats = asyncHandler(async (req, res) => {
         ],
         activeItems: [
           { $match: { status: 'active' } },
-          { $project: { title: 1, views: '$stats.views', phones: '$stats.phones', chats: '$stats.chats' } },
+          {
+            $project: {
+              title: 1,
+              category: 1, // Include category ID
+              price: 1, // Include price object
+              type: 1, // Include type for price rendering
+              rentDetails: 1, // Include rent details if applicable
+              exchangeDetails: 1, // Include exchange details if applicable
+              views: '$stats.views',
+              phones: '$stats.phones',
+              chats: '$stats.chats'
+            }
+          },
+          { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } }, // Populate category
+          { $unwind: '$category' }, // Unwind the category array
+          { $project: { 
+            title: 1, 
+            'category.name': 1, // Only keep the category name
+            price: 1, 
+            type: 1, 
+            rentDetails: 1, 
+            exchangeDetails: 1, 
+            views: 1, 
+            phones: 1, 
+            chats: 1 
+          } },
           { $sort: { views: -1 } },
           { $limit: 50 }
         ],
         soldItems: [
           { $match: { status: 'sold' } },
-          { $project: { title: 1, views: '$stats.views', phones: '$stats.phones', chats: '$stats.chats', soldAt: '$updatedAt' } },
+          {
+            $project: {
+              title: 1,
+              category: 1, // Include category ID
+              price: 1, // Include price object
+              type: 1, // Include type for price rendering
+              rentDetails: 1, // Include rent details if applicable
+              exchangeDetails: 1, // Include exchange details if applicable
+              views: '$stats.views',
+              phones: '$stats.phones',
+              chats: '$stats.chats',
+              soldAt: '$updatedAt'
+            }
+          },
+          { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } }, // Populate category
+          { $unwind: '$category' }, // Unwind the category array
+          { $project: { 
+            title: 1, 
+            'category.name': 1, // Only keep the category name
+            price: 1, 
+            type: 1, 
+            rentDetails: 1, 
+            exchangeDetails: 1, 
+            views: 1, 
+            phones: 1, 
+            chats: 1, 
+            soldAt: 1 
+          } },
           { $sort: { soldAt: -1 } },
           { $limit: 50 }
         ]

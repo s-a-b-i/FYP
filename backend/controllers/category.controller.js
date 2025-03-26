@@ -54,26 +54,33 @@ export const createCategory = asyncHandler(async (req, res) => {
 });
 
 // Get Categories
+// In category.controller.js
 export const getCategories = asyncHandler(async (req, res) => {
+  const categories = await Category.aggregate([
+    {
+      $lookup: {
+        from: 'items',
+        let: { categoryId: '$_id' },
+        pipeline: [
+          { 
+            $match: { 
+              $expr: { $eq: ['$category', '$$categoryId'] },
+              status: 'active'
+            } 
+          }
+        ],
+        as: 'items'
+      }
+    },
+    {
+      $addFields: {
+        itemCount: { $size: '$items' }
+      }
+    },
+    { $sort: { order: 1 } }
+  ]);
 
-  // console.log('User:', req.user); // Log the user object
-
-  const filter = {};
-  if (!req.user?.isAdmin) {
-    filter.isActive = true;
-  }
-
-  // console.log('Filter:', filter); // Log the filter
-
-  const categories = await Category.find(filter)
-  .select('name parent isActive metadata icon')
-    .sort('order')
-    .populate('parent' , 'name');
-
-  res.json({
-    status: 'success',
-    data: categories
-  });
+  res.json({ status: 'success', data: categories });
 });
 
 // Get Category by ID

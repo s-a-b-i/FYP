@@ -12,17 +12,27 @@ const api = axios.create({
 
 export const itemAPI = {
   // Public routes
-  getItems: async (page = 1, limit = 10, category, type) => {
+  getItems: async (params = {}) => {
     try {
+      const { category, sort, limit = 10, city, minPrice, maxPrice, type } = params;
       const response = await api.get('/', {
-        params: { page, limit, category, type },
+        params: {
+          category,
+          sort,
+          limit,
+          city,
+          minPrice,
+          maxPrice,
+          type,
+        },
       });
+      console.log('API Request Query:', response.config.params); // Debug log
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
   },
-
+  
   searchItems: async (query, category, type, minPrice, maxPrice, condition, location) => {
     try {
       const response = await api.get('/search', {
