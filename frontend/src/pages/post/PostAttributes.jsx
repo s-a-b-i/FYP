@@ -244,10 +244,21 @@ const PostAttributes = () => {
           "Main Bazaar", "Housing Scheme", "Khaigala Road", "Dothan", "Paniola", "CMH Road"
         ]
       };
-      setNeighborhoods(neighborhoodData[selectedCity] || []);
+      const cityNeighborhoods = neighborhoodData[selectedCity] || [];
+      setNeighborhoods(cityNeighborhoods);
+
+  // If there are no neighborhoods, use the city name as the neighborhood
+    if (cityNeighborhoods.length === 0) {
+      setSelectedNeighborhood(selectedCity); // Use city name as default neighborhood
+      setFormData((prev) => ({
+        ...prev,
+        location: { ...prev.location, neighborhood: selectedCity }
+      }));
+    } else {
       setSelectedNeighborhood("");
     }
-  }, [selectedCity]);
+  }
+}, [selectedCity]);
 
   const handleChange = (e) => {
     const { name, value, type: inputType, checked } = e.target;
@@ -384,17 +395,29 @@ const PostAttributes = () => {
       setLoading(true);
       const clothingCategoryId = 'clothing_category_id';
       const isClothing = categoryId === clothingCategoryId;
-
+  
       if (isClothing && !formData.size) {
         throw new Error("Size is required for clothing items");
       }
-      if (!formData.location.city || !formData.location.neighborhood) {
-        throw new Error("City and neighborhood are required");
+      
+      // Ensure city is provided
+      if (!formData.location.city) {
+        throw new Error("City is required");
       }
+      
+      // If the city has no defined neighborhoods, use the city name as the neighborhood
+      if (!formData.location.neighborhood && formData.location.city) {
+        setFormData(prev => ({
+          ...prev,
+          location: { ...prev.location, neighborhood: prev.location.city }
+        }));
+        formData.location.neighborhood = formData.location.city;
+      }
+      
       if (formData.images.length === 0) {
         throw new Error("At least one image is required");
       }
-      if (type === "exchange" && !formData.exchangeFor.trim()) {
+      if (type === "exchange" && !formData.exchangeFor?.trim()) {
         throw new Error("Exchange For is required for exchange items");
       }
       if (type === "sell" && (!formData.price || Number(formData.price) <= 0)) {
@@ -403,7 +426,7 @@ const PostAttributes = () => {
       if (type === "rent" && (!formData.rentDuration || !formData.pricePerUnit || !formData.availabilityDate)) {
         throw new Error("Rent duration, price per unit, and availability date are required for rent items");
       }
-
+  
       const itemData = new FormData();
       itemData.append("category", categoryId);
       itemData.append("type", type);
@@ -416,11 +439,11 @@ const PostAttributes = () => {
       itemData.append("brand", formData.brand);
       itemData.append("color", formData.color);
       itemData.append("location", JSON.stringify(formData.location));
-
+  
       if (type === "sell") {
         itemData.append("price", JSON.stringify({ amount: Number(formData.price), currency: "PKR" }));
       }
-
+  
       if (type === "rent") {
         itemData.append(
           "rentDetails",
@@ -436,7 +459,7 @@ const PostAttributes = () => {
           })
         );
       }
-
+  
       if (type === "exchange") {
         itemData.append(
           "exchangeDetails",
@@ -450,7 +473,7 @@ const PostAttributes = () => {
           })
         );
       }
-
+  
       itemData.append(
         "contactInfo",
         JSON.stringify({
@@ -459,18 +482,18 @@ const PostAttributes = () => {
           showPhoneNumber: formData.showPhoneNumber,
         })
       );
-
+  
       formData.images.forEach((image, index) => {
         itemData.append("images", image);
       });
-
+  
       const response = await itemAPI.createItem(itemData);
-
+  
       setPreviewImages([]);
       setFormData((prev) => ({ ...prev, images: [] }));
       navigate("/success");
     } catch (err) {
-      setError("Failed to create item: " + err.message);
+      setError("Failed to create item: " + (err.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -624,24 +647,31 @@ const PostAttributes = () => {
                 )}
 
                 {/* Neighborhood Selection */}
-                {selectedCity && (
-                  <div className="relative">
-                    <label className="block text-sm font-medium mb-2">Neighborhood</label>
-                    <button
-                      type="button"
-                      onClick={() => setIsNeighborhoodDropdownOpen(!isNeighborhoodDropdownOpen)}
-                      className="w-full px-3 py-2 border rounded-lg bg-white flex items-center justify-between hover:bg-gray-50 transition-colors text-sm"
-                      disabled={loading}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPinIcon className="h-4 w-4 text-gray-700" />
-                        <span className="truncate">{selectedNeighborhood || "Select Neighborhood"}</span>
-                      </div>
-                      <ChevronUp className={`h-4 w-4 transition-transform ${isNeighborhoodDropdownOpen ? '' : 'rotate-180'}`} />
-                    </button>
-                    {isNeighborhoodDropdownOpen && <NeighborhoodDropdown />}
-                  </div>
-                )}
+{/* Neighborhood Selection */}
+{selectedCity && (
+  <div className="relative">
+    <label className="block text-sm font-medium mb-2">Neighborhood</label>
+    <button
+      type="button"
+      onClick={() => setIsNeighborhoodDropdownOpen(!isNeighborhoodDropdownOpen)}
+      className="w-full px-3 py-2 border rounded-lg bg-white flex items-center justify-between hover:bg-gray-50 transition-colors text-sm"
+      disabled={loading || neighborhoods.length === 0} // Disable if no neighborhoods
+    >
+      <div className="flex items-center gap-2">
+        <MapPinIcon className="h-4 w-4 text-gray-700" />
+        <span className="truncate">
+          {neighborhoods.length === 0 
+            ? `${selectedCity} (City Center)` // Show something meaningful when no neighborhoods
+            : (selectedNeighborhood || "Select Neighborhood")}
+        </span>
+      </div>
+      {neighborhoods.length > 0 && (
+        <ChevronUp className={`h-4 w-4 transition-transform ${isNeighborhoodDropdownOpen ? '' : 'rotate-180'}`} />
+      )}
+    </button>
+    {isNeighborhoodDropdownOpen && neighborhoods.length > 0 && <NeighborhoodDropdown />}
+  </div>
+)}
               </div>
             </div>
           </div>
